@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Custom attributes for AndroPlay -->
+    
+    <!-- Lyrics display attributes -->
+    <declare-styleable name="LyricsView">
+        <attr name="lyricsTextColor" format="color" />
+        <attr name="lyricsTextSize" format="dimension" />
+        <attr name="lyricsHighlightColor" format="color" />
+        <attr name="lyricsAnimation" format="string" />
+        <attr name="lyricsAlignment" format="enum">
+            <enum name="center" value="0" />
+            <enum name="left" value="1" />
+            <enum name="right" value="2" />
+        </attr>
+    </declare-styleable>
+
+    <!-- Player control attributes -->
+    <declare-styleable name="PlayerControlView">
+        <attr name="controlColor" format="color" />
+        <attr name="controlSize" format="dimension" />
+        <attr name="showProgressBar" format="boolean" />
+        <attr name="showTimeDisplay" format="boolean" />
+    </declare-styleable>
+
+    <!-- AirPlay status attributes -->
+    <declare-styleable name="AirPlayStatusView">
+        <attr name="statusColor" format="color" />
+        <attr name="statusTextSize" format="dimension" />
+        <attr name="showDeviceList" format="boolean" />
+    </declare-styleable>
+</resources>

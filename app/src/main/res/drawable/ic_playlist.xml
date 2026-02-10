@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Playlist icon -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M15,6H3V8H15V6ZM15,10H3V12H15V10ZM3,16H12V14H3V16ZM17,8V14C17,15.1 17.9,16 19,16C20.1,16 21,15.1 21,14C21,12.9 20.1,12 19,12C18.5,12 18.05,12.15 17.7,12.4L19,13.7V8H17Z" />
+    
+</vector>

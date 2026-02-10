@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary colors -->
+    <color name="colorPrimary">#2196F3</color>
+    <color name="colorPrimaryDark">#1976D2</color>
+    <color name="colorAccent">#FF4081</color>
+    
+    <!-- Background colors -->
+    <color name="background_dark">#121212</color>
+    <color name="background_light">#FFFFFF</color>
+    
+    <!-- Text colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B3FFFFFF</color>
+    
+    <!-- AirPlay colors -->
+    <color name="airplay_primary">#007AFF</color>
+    <color name="airplay_secondary">#34C759</color>
+    
+    <!-- Player colors -->
+    <color name="player_background">#000000</color>
+    <color name="player_progress">#FF4081</color>
+    
+    <!-- Lyrics colors -->
+    <color name="lyrics_current">#FFFFFF</color>
+    <color name="lyrics_past">#80FFFFFF</color>
+    <color name="lyrics_future">#40FFFFFF</color>
+    
+    <!-- Leanback colors -->
+    <color name="leanback_browse_title_color">#FFFFFF</color>
+    <color name="leanback_search_orb_color">#FF4081</color>
+</resources>

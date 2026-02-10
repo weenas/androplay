@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include application data -->
+    <include domain="sharedpref" path="." />
+    <include domain="database" path="." />
+    <include domain="file" path="." />
+    <include domain="external" path="." />
+    
+    <!-- Exclude cache directories -->
+    <exclude domain="cache" path="." />
+    <exclude domain="no_backup" path="." />
+    
+    <!-- Include media files -->
+    <include domain="external" path="media" />
+    
+    <!-- Exclude temporary files -->
+    <exclude domain="external" path="temp" />
+    <exclude domain="external" path="cache" />
+</full-backup-content>

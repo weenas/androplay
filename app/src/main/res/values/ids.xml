@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Main Activity IDs -->
+    <item type="id" name="browse_fragment" />
+    <item type="id" name="main_content" />
+    <item type="id" name="status_bar" />
+    
+    <!-- Player Activity IDs -->
+    <item type="id" name="player_view" />
+    <item type="id" name="lyrics_display" />
+    <item type="id" name="player_control_view" />
+    <item type="id" name="progress_bar" />
+    <item type="id" name="time_display" />
+    
+    <!-- Lyrics Activity IDs -->
+    <item type="id" name="lyrics_title" />
+    <item type="id" name="lyrics_content" />
+    <item type="id" name="back_button" />
+    
+    <!-- AirPlay IDs -->
+    <item type="id" name="airplay_status" />
+    <item type="id" name="airplay_device_list" />
+    <item type="id" name="airplay_settings" />
+    
+    <!-- Settings IDs -->
+    <item type="id" name="settings_list" />
+    <item type="id" name="settings_content" />
+    
+    <!-- Common IDs -->
+    <item type="id" name="title_text" />
+    <item type="id" name="content_text" />
+    <item type="id" name="action_button" />
+    <item type="id" name="back_button" />
+</resources>

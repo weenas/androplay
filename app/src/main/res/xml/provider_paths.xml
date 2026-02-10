@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- External storage paths for media files -->
+    <external-path name="external_files" path="." />
+    <external-files-path name="external_files" path="." />
+    <cache-path name="cache" path="." />
+    <external-cache-path name="external_cache" path="." />
+    
+    <!-- Media specific paths -->
+    <external-path name="media" path="Android/media/com.androplay" />
+    <external-files-path name="media" path="media" />
+</paths>

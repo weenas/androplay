@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Standard dimensions -->
+    <dimen name="margin_small">4dp</dimen>
+    <dimen name="margin_medium">8dp</dimen>
+    <dimen name="margin_large">16dp</dimen>
+    <dimen name="margin_xlarge">24dp</dimen>
+    
+    <!-- Text sizes -->
+    <dimen name="text_size_small">12sp</dimen>
+    <dimen name="text_size_medium">14sp</dimen>
+    <dimen name="text_size_large">16sp</dimen>
+    <dimen name="text_size_xlarge">18sp</dimen>
+    <dimen name="text_size_xxlarge">24sp</dimen>
+    <dimen name="text_size_xxxlarge">32sp</dimen>
+    
+    <!-- Player dimensions -->
+    <dimen name="player_control_height">48dp</dimen>
+    <dimen name="player_progress_height">4dp</dimen>
+    <dimen name="player_lyrics_height">120dp</dimen>
+    
+    <!-- Lyrics dimensions -->
+    <dimen name="lyrics_line_height">24dp</dimen>
+    <dimen name="lyrics_padding">16dp</dimen>
+    <dimen name="lyrics_text_size">20sp</dimen>
+    
+    <!-- AirPlay dimensions -->
+    <dimen name="airplay_device_item_height">64dp</dimen>
+    <dimen name="airplay_status_height">48dp</dimen>
+    
+    <!-- Card dimensions -->
+    <dimen name="card_width">300dp</dimen>
+    <dimen name="card_height">200dp</dimen>
+    <dimen name="card_corner_radius">8dp</dimen>
+    
+    <!-- Button dimensions -->
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="button_min_width">88dp</dimen>
+    <dimen name="button_padding">16dp</dimen>
+    
+    <!-- Icon sizes -->
+    <dimen name="icon_size_small">16dp</dimen>
+    <dimen name="icon_size_medium">24dp</dimen>
+    <dimen name="icon_size_large">32dp</dimen>
+    
+    <!-- Animation durations -->
+    <dimen name="animation_duration_short">200ms</dimen>
+    <dimen name="animation_duration_medium">400ms</dimen>
+    <dimen name="animation_duration_long">600ms</dimen>
+</resources>

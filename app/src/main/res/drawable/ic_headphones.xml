@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Headphones icon -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M12,1C9.24,1 7,3.24 7,6V12C7,14.76 9.24,17 12,17C14.76,17 17,14.76 17,12V6C17,3.24 14.76,1 12,1ZM12,15C10.34,15 9,13.66 9,12V6C9,4.34 10.34,3 12,3C13.66,3 15,4.34 15,6V12C15,13.66 13.66,15 12,15ZM19,12C19,15.87 15.87,19 12,19C8.13,19 5,15.87 5,12H3C3,16.97 7.03,21 12,21C16.97,21 21,16.97 21,12H19Z" />
+    
+</vector>

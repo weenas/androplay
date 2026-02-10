@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AirPlay device filter -->
+    <device-filter>
+        <!-- Apple TV devices -->
+        <device type="airplay" name="Apple TV" />
+        <device type="airplay" name="Apple TV 4K" />
+        <device type="airplay" name="Apple TV HD" />
+        
+        <!-- AirPlay 2 compatible devices -->
+        <device type="airplay" name="AirPlay 2 Receiver" />
+        <device type="airplay" name="HomePod" />
+        <device type="airplay" name="HomePod mini" />
+        
+        <!-- Compatible devices -->
+        <device type="airplay" name="Compatible AirPlay Device" />
+    </device-filter>
+</resources>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AndroPlay</string>
+    <string name="airplay_service_name">AirPlay Service</string>
+    <string name="player_activity_title">播放器</string>
+    <string name="lyrics_activity_title">歌词管理</string>
+    <string name="settings_activity_title">设置</string>
+    
+    <!-- Menu items -->
+    <string name="menu_airplay">AirPlay</string>
+    <string name="menu_player">播放器</string>
+    <string name="menu_lyrics">歌词</string>
+    <string name="menu_settings">设置</string>
+    
+    <!-- AirPlay strings -->
+    <string name="airplay_start">启动 AirPlay</string>
+    <string name="airplay_stop">停止 AirPlay</string>
+    <string name="airplay_devices">连接设备</string>
+    <string name="airplay_settings">AirPlay 设置</string>
+    
+    <!-- Player strings -->
+    <string name="player_music">音乐播放</string>
+    <string name="player_video">视频播放</string>
+    <string name="player_playlist">播放列表</string>
+    
+    <!-- Lyrics strings -->
+    <string name="lyrics_library">歌词库</string>
+    <string name="lyrics_sync">同步设置</string>
+    <string name="lyrics_style">样式设置</string>
+    
+    <!-- Settings strings -->
+    <string name="settings_network">网络设置</string>
+    <string name="settings_display">显示设置</string>
+    <string name="settings_about">关于</string>
+    
+    <!-- Messages -->
+    <string name="msg_service_started">服务已启动</string>
+    <string name="msg_service_stopped">服务已停止</string>
+    <string name="msg_playing">正在播放</string>
+    <string name="msg_paused">已暂停</string>
+    <string name="msg_no_lyrics">未找到歌词</string>
+</resources>

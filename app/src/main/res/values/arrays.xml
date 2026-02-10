@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AirPlay device types -->
+    <string-array name="airplay_device_types">
+        <item>Apple TV</item>
+        <item>AirPlay 2 接收器</item>
+        <item>兼容设备</item>
+    </string-array>
+
+    <!-- Media quality options -->
+    <string-array name="media_quality_options">
+        <item>自动</item>
+        <item>高</item>
+        <item>中</item>
+        <item>低</item>
+    </string-array>
+
+    <!-- Lyrics display modes -->
+    <string-array name="lyrics_display_modes">
+        <item>单行</item>
+        <item>双行</item>
+        <item>滚动</item>
+    </string-array>
+
+    <!-- Lyrics alignment options -->
+    <string-array name="lyrics_alignment_options">
+        <item>居中</item>
+        <item>左对齐</item>
+        <item>右对齐</item>
+    </string-array>
+
+    <!-- Font size options -->
+    <string-array name="font_size_options">
+        <item>小</item>
+        <item>中</item>
+        <item>大</item>
+        <item>特大</item>
+    </string-array>
+
+    <!-- Animation options -->
+    <string-array name="animation_options">
+        <item>无</item>
+        <item>淡入淡出</item>
+        <item>滑动</item>
+        <item>缩放</item>
+    </string-array>
+</resources>
