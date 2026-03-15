@@ -1,0 +1,24 @@
+# Build outputs
+build/
+app/build/
+*.apk
+*.aab
+*.ap_
+
+# Gradle cache
+.gradle/
+
+# IDE files
+.idea/
+
+# Logs
+*.log
+*compile*.md
+BUILD_*.md
+HOURLY_*.md
+
+# Build tools and local configs
+*.class
+local.properties
+gradle-daemon-jvm.properties
+run_build.sh
