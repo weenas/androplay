@@ -15,7 +15,6 @@
     <!-- Lyrics Activity IDs -->
     <item type="id" name="lyrics_title" />
     <item type="id" name="lyrics_content" />
-    <item type="id" name="back_button" />
     
     <!-- AirPlay IDs -->
     <item type="id" name="airplay_status" />

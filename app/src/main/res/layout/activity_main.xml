@@ -1,10 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.leanback.app.BrowseFragment xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<androidx.leanback.widget.BrowseFrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/browse_fragment"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    app:headersState="enabled"
-    app:brandColor="@color/leanback_browse_title_color"
-    app:titleTextColor="@color/leanback_browse_title_color"
-    app:searchAffordanceColor="@color/leanback_search_orb_color" />
+    android:layout_height="match_parent" />

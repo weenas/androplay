@@ -42,9 +42,4 @@
     <dimen name="icon_size_small">16dp</dimen>
     <dimen name="icon_size_medium">24dp</dimen>
     <dimen name="icon_size_large">32dp</dimen>
-    
-    <!-- Animation durations -->
-    <dimen name="animation_duration_short">200ms</dimen>
-    <dimen name="animation_duration_medium">400ms</dimen>
-    <dimen name="animation_duration_long">600ms</dimen>
 </resources>
