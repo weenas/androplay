@@ -1,10 +1,39 @@
-com.androplay
-# project
-com.androplay.*
-# language
-kotlin
-# build
-gradle
-# platform
-android-tv
-.kilo/
+# Android
+*.apk
+*.apks
+*.aab
+*.jar
+*.class
+
+# Build
+build/
+bin/
+gen/
+generated/
+
+# Gradle
+.gradle/
+gradle-app/
+!gradle/wrapper/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Local
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin
+*.kotlin_module
+
+# Debug
+debug.keystore
+
+# Test
+/test-outputs/
+/profils/
