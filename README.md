@@ -41,7 +41,7 @@ AndroPlay is an Android TV app that receives screen mirroring, audio, and video 
 
 ```bash
 # Clone and initialize submodules
-git clone https://github.com/your-org/AndroPlay.git
+git clone git@github.com:weenas/androplay.git
 cd AndroPlay
 git submodule update --init --recursive
 
