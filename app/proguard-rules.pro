@@ -1,0 +1,2 @@
+-keep class com.androplay.** { *; }
+-dontwarn com.androplay.**

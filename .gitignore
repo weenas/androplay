@@ -1,0 +1,10 @@
+com.androplay
+# project
+com.androplay.*
+# language
+kotlin
+# build
+gradle
+# platform
+android-tv
+.kilo/
