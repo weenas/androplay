@@ -25,14 +25,14 @@ class MainActivity : ComponentActivity() {
                 val viewModel: AirPlayViewModel = viewModel()
 
                 LaunchedEffect(viewModel.navigateToSettings.value) {
-                    if (viewModel.navigateToSettings.value) {
+                    if (viewModel.navigateToSettings.value == true) {
                         currentScreen = "settings"
                         viewModel.onNavigateToSettingsConsumed()
                     }
                 }
 
                 LaunchedEffect(viewModel.navigateBack.value) {
-                    if (viewModel.navigateBack.value) {
+                    if (viewModel.navigateBack.value == true) {
                         currentScreen = "mirror"
                         viewModel.onNavigateBackConsumed()
                     }

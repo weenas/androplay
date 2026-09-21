@@ -29,6 +29,7 @@ local.properties
 Thumbs.db
 
 # Kotlin
+.kotlin/
 *.kotlin_module
 
 # Debug
