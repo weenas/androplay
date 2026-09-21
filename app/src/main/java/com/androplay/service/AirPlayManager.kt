@@ -81,7 +81,7 @@ class AirPlayManager private constructor(context: Context) {
     fun onNativeStreamStopped() {
         currentState = AirPlayConnectionState.Idle
         currentStreamInfo = StreamInfo()
-        notifyStateChange(ConnectionState.Idle)
+        notifyStateChange(AirPlayConnectionState.Idle)
     }
 
     fun onNativeError(error: String) {
