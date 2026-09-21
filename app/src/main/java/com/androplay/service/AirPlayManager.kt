@@ -21,6 +21,7 @@ class AirPlayManager private constructor(context: Context) {
     }
 
     private val nativeBridge = NativeBridge()
+    private val settingsStore = ReceiverSettingsStore(context)
 
     private val _stateCallbacks = mutableListOf<(AirPlayConnectionState, StreamInfo, String?) -> Unit>()
 
@@ -37,11 +38,11 @@ class AirPlayManager private constructor(context: Context) {
         nativeBridge.initialize(context)
     }
 
-    fun start() {
-        Log.d(TAG, "Starting AirPlay server")
+    fun start(settings: ReceiverSettings = settingsStore.load()) {
+        Log.d(TAG, "Starting AirPlay server: ${settings.deviceName}")
         currentState = AirPlayConnectionState.Discovering
         // Native implementation would handle discovery
-        nativeBridge.start("AndroPlay")
+        nativeBridge.start(settings.deviceName)
     }
 
     fun stop() {
