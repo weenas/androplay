@@ -1,11 +1,19 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// The native AirPlay integration depends on a separately built UxPlay artifact.
+// Keep the UI app buildable until that integration is supplied.
+val enableNativeBuild = providers.gradleProperty("enableNativeBuild")
+    .map(String::toBoolean)
+    .orElse(false)
 
 android {
     namespace = "com.androplay"
     compileSdk = 35
+    buildToolsVersion = "35.0.0"
 
     defaultConfig {
         applicationId = "com.androplay"
@@ -14,10 +22,12 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        externalNativeBuild {
-            cmake {
-                cppFlags("-std=c++17 -frtti -fexceptions")
-                arguments("-DANDROID_STL=c++_shared")
+        if (enableNativeBuild.get()) {
+            externalNativeBuild {
+                cmake {
+                    cppFlags("-std=c++17 -frtti -fexceptions")
+                    arguments("-DANDROID_STL=c++_shared")
+                }
             }
         }
     }
@@ -32,10 +42,12 @@ android {
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+    if (enableNativeBuild.get()) {
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
         }
     }
 
