@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # UxPlay library path
-set(UxPlay_ROOT "${CMAKE_SOURCE_DIR}/../../native/uxplay" CACHE PATH "UxPlay root directory")
+set(UxPlay_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../native/uxplay" CACHE PATH "UxPlay root directory")
 
 # Include directories
 include_directories(
@@ -28,8 +28,6 @@ target_link_libraries(androplay-native
     android
     dl
     z
-    ssl
-    crypto
 )
 
 # Prebuilt UxPlay (if available)

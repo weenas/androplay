@@ -56,7 +56,7 @@ private:
 
     std::atomic<ConnectionState> state_{ConnectionState::Idle};
     StreamInfo currentStream_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
 
     std::function<void(const StreamInfo&)> streamStartedCallback_;
     std::function<void()> streamStoppedCallback_;
