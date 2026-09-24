@@ -2,6 +2,7 @@ package com.androplay.viewmodel
 
 import android.app.Application
 import android.content.Intent
+import android.view.Surface
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.*
 import com.androplay.service.AirPlayConnectionState
@@ -54,6 +55,10 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
                 .setAction(com.androplay.service.AirPlayService.ACTION_STOP)
         )
         manager.stop()
+    }
+
+    fun setVideoSurface(surface: Surface?) {
+        manager.setVideoSurface(surface)
     }
 
     fun updateSettings(transform: (ReceiverSettings) -> ReceiverSettings) {
