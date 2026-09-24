@@ -3,6 +3,8 @@ package com.androplay.service
 enum class AirPlayConnectionState {
     Idle,
     Discovering,
+    Registering,
+    AdvertisingOnly,
     Connecting,
     Connected,
     Streaming,

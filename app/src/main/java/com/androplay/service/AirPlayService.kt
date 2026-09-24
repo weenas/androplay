@@ -21,10 +21,25 @@ class AirPlayService : Service() {
 
     private val manager by lazy { AirPlayManager.getInstance(this) }
     private var running = false
+    private val stateCallback: (AirPlayConnectionState, StreamInfo, String?) -> Unit = { state, _, _ ->
+        if (running) {
+            when (state) {
+                AirPlayConnectionState.AdvertisingOnly -> getSystemService(NotificationManager::class.java)
+                    .notify(NOTIFICATION_ID, buildNotification("Discoverable only — streaming unavailable"))
+                AirPlayConnectionState.Error -> {
+                    running = false
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+                else -> Unit
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        manager.registerStateCallback(stateCallback)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -45,7 +60,9 @@ class AirPlayService : Service() {
         }
         running = true
         getSystemService(NotificationManager::class.java)
-            .notify(NOTIFICATION_ID, buildNotification("Waiting for AirPlay connection"))
+            .notify(NOTIFICATION_ID, buildNotification(
+                if (manager.isDiscoveryOnly) "Publishing AirPlay discovery" else "Waiting for AirPlay connection"
+            ))
         return START_NOT_STICKY
     }
 
@@ -53,6 +70,7 @@ class AirPlayService : Service() {
 
     override fun onDestroy() {
         if (running) manager.stop()
+        manager.unregisterStateCallback(stateCallback)
         super.onDestroy()
     }
 

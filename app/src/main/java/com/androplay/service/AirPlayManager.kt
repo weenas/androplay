@@ -22,6 +22,7 @@ class AirPlayManager private constructor(context: Context) {
     }
 
     private val nativeBridge = NativeBridge()
+    private val discoveryAdvertiser = AirPlayDiscoveryAdvertiser(context)
     private val videoRenderer = VideoRenderer()
     private val settingsStore = ReceiverSettingsStore(context)
 
@@ -36,6 +37,10 @@ class AirPlayManager private constructor(context: Context) {
     @Volatile private var currentStreamInfo: StreamInfo = StreamInfo()
     private var currentError: String? = null
 
+    val isDiscoveryOnly: Boolean
+        get() = currentState == AirPlayConnectionState.Registering ||
+            currentState == AirPlayConnectionState.AdvertisingOnly
+
     init {
         nativeBridge.initialize(context)
     }
@@ -43,18 +48,32 @@ class AirPlayManager private constructor(context: Context) {
     fun start(settings: ReceiverSettings = settingsStore.load()): Boolean {
         Log.d(TAG, "Starting AirPlay server: ${settings.deviceName}")
         currentError = null
-        if (!nativeBridge.start(settings.deviceName)) {
-            currentError = "AirPlay receiver engine is not included in this build"
+        if (nativeBridge.start(settings.deviceName)) {
+            currentState = AirPlayConnectionState.Discovering
+            return true
+        }
+        if (!discoveryAdvertiser.start(
+                settings.deviceName,
+                onReady = {
+                    Log.i(TAG, "AirPlay discovery records are visible on the local network")
+                    if (currentState == AirPlayConnectionState.Registering) {
+                        currentState = AirPlayConnectionState.AdvertisingOnly
+                    }
+                },
+                onError = ::onNativeError
+            )) {
+            currentError = "Could not start local network discovery"
             currentState = AirPlayConnectionState.Error
             return false
         }
-        currentState = AirPlayConnectionState.Discovering
+        currentState = AirPlayConnectionState.Registering
         return true
     }
 
     fun stop() {
         Log.d(TAG, "Stopping AirPlay server")
         nativeBridge.stop()
+        discoveryAdvertiser.stop()
         videoRenderer.stop()
         currentStreamInfo = StreamInfo()
         currentError = null
@@ -91,6 +110,7 @@ class AirPlayManager private constructor(context: Context) {
     }
 
     fun onNativeError(error: String) {
+        discoveryAdvertiser.stop()
         videoRenderer.stop()
         currentError = error
         currentState = AirPlayConnectionState.Error

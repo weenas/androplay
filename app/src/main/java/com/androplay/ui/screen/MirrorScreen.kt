@@ -46,6 +46,12 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
                 AirPlayConnectionState.Discovering -> DiscoveringScreen(
                     onStop = { viewModel.stopServer() }
                 )
+                AirPlayConnectionState.Registering -> RegisteringScreen(
+                    onStop = { viewModel.stopServer() }
+                )
+                AirPlayConnectionState.AdvertisingOnly -> AdvertisingOnlyScreen(
+                    onStop = { viewModel.stopServer() }
+                )
                 AirPlayConnectionState.Connecting -> ConnectingScreen()
                 AirPlayConnectionState.Connected -> ConnectedScreen(
                     viewModel = viewModel,
@@ -105,7 +111,35 @@ fun DiscoveringScreen(onStop: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Scanning for AirPlay devices...", color = Color.White)
+        Text("Waiting for an AirPlay connection...", color = Color.White)
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onStop) { Text("Stop") }
+    }
+}
+
+@Composable
+fun RegisteringScreen(onStop: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("Publishing AndroPlay on the local network...", color = Color.White)
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onStop) { Text("Stop") }
+    }
+}
+
+@Composable
+fun AdvertisingOnlyScreen(onStop: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text("AndroPlay is visible on the local network", color = Color.White, fontSize = 26.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Discovery preview only — AirPlay streaming is not available yet.", color = Color.Gray)
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onStop) { Text("Stop") }
     }
