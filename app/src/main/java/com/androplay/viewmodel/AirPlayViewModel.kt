@@ -1,6 +1,8 @@
 package com.androplay.viewmodel
 
 import android.app.Application
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.*
 import com.androplay.service.AirPlayConnectionState
 import com.androplay.service.AirPlayManager
@@ -32,21 +34,25 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
     private var _navigateBack = MutableLiveData(false)
     val navigateBack: LiveData<Boolean> = _navigateBack
 
+    private val stateCallback: (AirPlayConnectionState, StreamInfo, String?) -> Unit = { state, streamInfo, error ->
+        _state.value = AirPlayUiState(state, streamInfo, error)
+    }
+
     init {
-        manager.registerStateCallback { state, streamInfo, error ->
-            _state.value = AirPlayUiState(
-                connectionState = state,
-                streamInfo = streamInfo,
-                errorMessage = error
-            )
-        }
+        manager.registerStateCallback(stateCallback)
     }
 
     fun startServer() {
-        manager.start(_settings.value)
+        val intent = Intent(getApplication(), com.androplay.service.AirPlayService::class.java)
+            .setAction(com.androplay.service.AirPlayService.ACTION_START)
+        ContextCompat.startForegroundService(getApplication(), intent)
     }
 
     fun stopServer() {
+        getApplication<Application>().startService(
+            Intent(getApplication(), com.androplay.service.AirPlayService::class.java)
+                .setAction(com.androplay.service.AirPlayService.ACTION_STOP)
+        )
         manager.stop()
     }
 
@@ -73,6 +79,6 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         super.onCleared()
-        manager.unregisterStateCallback()
+        manager.unregisterStateCallback(stateCallback)
     }
 }

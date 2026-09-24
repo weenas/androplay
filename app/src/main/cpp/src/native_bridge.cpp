@@ -66,3 +66,19 @@ void NativeBridge::nativeOnFrameInfo(JNIEnv* env, jobject thiz,
 }
 
 } // namespace androplay
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_androplay_service_NativeBridge_nativeStart(
+    JNIEnv* env, jobject, jstring deviceName) {
+    if (deviceName == nullptr) return JNI_FALSE;
+    const char* name = env->GetStringUTFChars(deviceName, nullptr);
+    if (name == nullptr) return JNI_FALSE;
+    const bool started = androplay::AirPlayEngine::instance().start(name);
+    env->ReleaseStringUTFChars(deviceName, name);
+    return started ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_androplay_service_NativeBridge_nativeStop(JNIEnv*, jobject) {
+    androplay::AirPlayEngine::instance().stop();
+}

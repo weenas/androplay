@@ -4,15 +4,7 @@ project(androplay-native VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# UxPlay library path
-set(UxPlay_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../native/uxplay" CACHE PATH "UxPlay root directory")
-
-# Include directories
-include_directories(
-    ${UxPlay_ROOT}/lib
-    ${UxPlay_ROOT}/lib/external
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # JNI header
 find_library(log-lib log)
@@ -29,11 +21,3 @@ target_link_libraries(androplay-native
     dl
     z
 )
-
-# Prebuilt UxPlay (if available)
-if(EXISTS "${UxPlay_ROOT}/build/libuxplay.so")
-    add_library(uxplay SHARED IMPORTED)
-    set_target_properties(uxplay PROPERTIES IMPORTED_LOCATION
-        "${UxPlay_ROOT}/build/libuxplay.so")
-    target_link_libraries(androplay-native uxplay)
-endif()

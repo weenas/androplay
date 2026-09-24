@@ -15,6 +15,7 @@ generated/
 .gradle/
 gradle-app/
 !gradle/wrapper/
+!gradle/wrapper/gradle-wrapper.jar
 
 # IDE
 .idea/

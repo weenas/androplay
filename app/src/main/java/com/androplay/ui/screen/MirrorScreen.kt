@@ -40,7 +40,9 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
                 AirPlayConnectionState.Idle -> IdleScreen(
                     onStart = { viewModel.startServer() }
                 )
-                AirPlayConnectionState.Discovering -> DiscoveringScreen()
+                AirPlayConnectionState.Discovering -> DiscoveringScreen(
+                    onStop = { viewModel.stopServer() }
+                )
                 AirPlayConnectionState.Connecting -> ConnectingScreen()
                 AirPlayConnectionState.Connected -> ConnectedScreen(
                     viewModel = viewModel,
@@ -94,13 +96,15 @@ fun IdleScreen(onStart: () -> Unit) {
 }
 
 @Composable
-fun DiscoveringScreen() {
+fun DiscoveringScreen(onStop: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text("Scanning for AirPlay devices...", color = Color.White)
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onStop) { Text("Stop") }
     }
 }
 
