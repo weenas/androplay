@@ -2,6 +2,7 @@ package com.androplay.service
 
 import android.content.Context
 import android.util.Log
+import android.view.Surface
 
 class AirPlayManager private constructor(context: Context) {
 
@@ -21,6 +22,7 @@ class AirPlayManager private constructor(context: Context) {
     }
 
     private val nativeBridge = NativeBridge()
+    private val videoRenderer = VideoRenderer()
     private val settingsStore = ReceiverSettingsStore(context)
 
     private val _stateCallbacks = mutableListOf<(AirPlayConnectionState, StreamInfo, String?) -> Unit>()
@@ -31,7 +33,7 @@ class AirPlayManager private constructor(context: Context) {
             notifyStateChange(value)
         }
 
-    private var currentStreamInfo: StreamInfo = StreamInfo()
+    @Volatile private var currentStreamInfo: StreamInfo = StreamInfo()
     private var currentError: String? = null
 
     init {
@@ -53,6 +55,7 @@ class AirPlayManager private constructor(context: Context) {
     fun stop() {
         Log.d(TAG, "Stopping AirPlay server")
         nativeBridge.stop()
+        videoRenderer.stop()
         currentStreamInfo = StreamInfo()
         currentError = null
         currentState = AirPlayConnectionState.Idle
@@ -73,18 +76,35 @@ class AirPlayManager private constructor(context: Context) {
 
     fun onNativeStreamStarted(name: String, model: String, width: Int, height: Int, fps: Int,
                               sampleRate: Int, channels: Int, isMirroring: Boolean) {
+        if (isMirroring && width > 0 && height > 0) {
+            videoRenderer.configure(width, height)
+        }
         currentStreamInfo = StreamInfo(name, model, width, height, fps, sampleRate, channels, isMirroring, true)
         currentError = null
         currentState = AirPlayConnectionState.Streaming
     }
 
     fun onNativeStreamStopped() {
+        videoRenderer.stop()
         currentStreamInfo = StreamInfo()
         currentState = AirPlayConnectionState.Discovering
     }
 
     fun onNativeError(error: String) {
+        videoRenderer.stop()
         currentError = error
         currentState = AirPlayConnectionState.Error
+    }
+
+    fun setVideoSurface(surface: Surface?) {
+        videoRenderer.setSurface(surface)
+    }
+
+    /** UxPlay's video callback will forward complete Annex B frames here once its core is linked. */
+    fun onNativeVideoData(data: ByteArray, presentationTimeUs: Long, isH265: Boolean) {
+        val stream = currentStreamInfo
+        if (!stream.isMirroring || stream.videoWidth <= 0 || stream.videoHeight <= 0) return
+        videoRenderer.configure(stream.videoWidth, stream.videoHeight, isH265)
+        videoRenderer.render(data, presentationTimeUs)
     }
 }

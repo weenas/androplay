@@ -1,5 +1,8 @@
 package com.androplay.ui.screen
 
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -147,6 +150,26 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (streamInfo.isMirroring) {
+            AndroidView(
+                factory = { context ->
+                    SurfaceView(context).apply {
+                        holder.addCallback(object : SurfaceHolder.Callback {
+                            override fun surfaceCreated(holder: SurfaceHolder) {
+                                viewModel.setVideoSurface(holder.surface)
+                            }
+
+                            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
+
+                            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                viewModel.setVideoSurface(null)
+                            }
+                        })
+                    }
+                },
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
+        }
         Text("Streaming", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
         Text("Source: ${streamInfo.sourceName}", color = Color.Gray)

@@ -22,7 +22,7 @@ AndroPlay aims to receive screen mirroring, audio, and video streams from AirPla
 
 ## Current Status
 
-The Android TV UI, persistent receiver settings, and foreground service start/stop flow build successfully. Pressing **Start** reports that the receiver engine is unavailable because the native AirPlay protocol implementation is not packaged yet. The app does not advertise itself as an AirPlay target or display a stream.
+The Android TV UI, persistent receiver settings, foreground service start/stop flow, and an Android MediaCodec video rendering path build successfully. The renderer accepts complete Annex B H.264/H.265 access units and displays them on a SurfaceView when a protocol backend supplies frames. Pressing **Start** still reports that the receiver engine is unavailable because the native AirPlay protocol implementation is not packaged yet. The app does not advertise itself as an AirPlay target or receive a stream.
 
 ## Planned Technical Implementation
 
