@@ -35,6 +35,13 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 .padding(16.dp)
         ) {
             item {
+                Text(
+                    "Settings are saved locally. Streaming options and PIN will become active when the AirPlay engine is integrated.",
+                    color = Color.Gray
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            item {
                 Text("Receiver", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(modifier = Modifier.height(8.dp))
                 DeviceNameSetting(value = settings.deviceName) { name ->

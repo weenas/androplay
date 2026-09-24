@@ -1,12 +1,12 @@
 # AndroPlay - AirPlay Receiver for Android TV
 
-A free, open-source AirPlay 2 receiver that turns Android TV into an AirPlay-compatible display and speaker.
+An open-source Android TV project for receiving AirPlay streams. The Android app and receiver lifecycle are under development; streaming is not available in the current build.
 
 ## What is AndroPlay?
 
-AndroPlay is an Android TV app that receives screen mirroring, audio, and video streams from iOS/iPadOS, macOS, and other AirPlay-enabled devices. Built on the [UxPlay](https://github.com/FDH2/UxPlay) library (GPL-3.0).
+AndroPlay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The planned protocol integration is [UxPlay](https://github.com/FDH2/UxPlay) (GPL-3.0), but it is not included or wired up yet.
 
-## Features
+## Planned Features
 
 - **Screen Mirroring** - Mirror iPhone/iPad/Mac screens to Android TV (H.264/H.265)
 - **Audio Streaming** - Stream music with AAC-ELD/AAC-LC/ALAC decoding
@@ -20,15 +20,11 @@ AndroPlay is an Android TV app that receives screen mirroring, audio, and video 
 - Android TV or Google TV device
 - Same local network as AirPlay sender
 
-## How It Works
+## Current Status
 
-1. Install AndroPlay on your Android TV
-2. Open the app and tap **Start**
-3. On your iPhone/iPad/Mac, open Control Center → Screen Mirroring
-4. Select "AndroPlay" from the device list
-5. Your screen is now mirrored to Android TV!
+The Android TV UI, persistent receiver settings, and foreground service start/stop flow build successfully. Pressing **Start** reports that the receiver engine is unavailable because the native AirPlay protocol implementation is not packaged yet. The app does not advertise itself as an AirPlay target or display a stream.
 
-## Technical Implementation
+## Planned Technical Implementation
 
 - **AirPlay Protocol**: UxPlay C library handles RAOP/RTSP/RTP protocol stack
 - **JNI Bridge**: Native C code interfaces with Android Java/Kotlin layer
@@ -40,14 +36,15 @@ AndroPlay is an Android TV app that receives screen mirroring, audio, and video 
 ## Building from Source
 
 ```bash
-# Clone and initialize submodules
+# Clone
 git clone git@github.com:weenas/androplay.git
 cd AndroPlay
-git submodule update --init --recursive
 
-# Build (requires Android SDK 35, NDK r25+, CMake 3.22+)
+# Build the Android UI and service shell (requires Android SDK 35)
 ./gradlew assembleDebug
 ```
+
+The native CMake target is disabled by default. `-PenableNativeBuild=true` enables the current JNI skeleton and requires a complete Android NDK and CMake installation; it does not yet provide a working AirPlay receiver. The repository does not currently contain a UxPlay submodule. Upstream UxPlay builds a static `airplay` protocol library and uses GStreamer renderers, so Android integration requires porting that library and implementing Android video/audio renderers.
 
 ## Project Structure
 
@@ -57,16 +54,13 @@ AndroPlay/
 │   ├── src/main/
 │   │   ├── java/com/androplay/
 │   │   │   ├── MainActivity.kt
-│   │   │   ├── service/       # AirPlay & Discovery services
-│   │   │   ├── native/        # Native bridge (JNI)
+│   │   │   ├── service/       # Service lifecycle and bridge
 │   │   │   ├── ui/            # Compose UI screens
 │   │   │   ├── viewmodel/     # MVVM ViewModels
 │   │   │   └── receiver/      # BroadcastReceivers
 │   │   ├── cpp/              # C++ native code (CMake)
 │   │   └── res/              # Android resources
 │   └── build.gradle.kts
-├── native/
-│   └── uxplay/               # UxPlay submodule
 └── README.md
 
 ## License

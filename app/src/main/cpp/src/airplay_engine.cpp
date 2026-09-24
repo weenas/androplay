@@ -1,8 +1,4 @@
 #include "airplay_engine.h"
-#include <unistd.h>
-#include <cstring>
-#include <cstdlib>
-#include <thread>
 
 namespace androplay {
 
@@ -24,48 +20,8 @@ bool AirPlayEngine::start(const std::string& deviceName, int port) {
     std::lock_guard<std::mutex> lock(mutex_);
     deviceName_ = deviceName;
     port_ = port;
-    state_.store(ConnectionState::Discovering);
-
-    if (stateChangedCallback_) {
-        stateChangedCallback_(state_.load());
-    }
-
-    // Start background thread for server operations
-    // In production, this would initialize UxPlay server here
-    std::thread([this]() {
-        // Simulate connection establishment
-        usleep(500000); // 500ms
-
-        state_.store(ConnectionState::Connected);
-        if (stateChangedCallback_) {
-            stateChangedCallback_(ConnectionState::Connected);
-        }
-
-        state_.store(ConnectionState::Streaming);
-        if (stateChangedCallback_) {
-            stateChangedCallback_(ConnectionState::Streaming);
-        }
-
-        StreamInfo info;
-        info.sourceName = "iPhone";
-        info.sourceModel = "iPhone15,2";
-        info.videoWidth = 1920;
-        info.videoHeight = 1080;
-        info.videoFps = 30;
-        info.isMirroring = true;
-        info.isPlaying = true;
-
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            currentStream_ = info;
-        }
-
-        if (streamStartedCallback_) {
-            streamStartedCallback_(info);
-        }
-    }).detach();
-
-    return true;
+    // UxPlay is not linked yet. Report failure until a real server can start.
+    return false;
 }
 
 void AirPlayEngine::stop() {

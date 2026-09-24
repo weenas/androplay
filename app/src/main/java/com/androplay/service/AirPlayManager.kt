@@ -38,18 +38,24 @@ class AirPlayManager private constructor(context: Context) {
         nativeBridge.initialize(context)
     }
 
-    fun start(settings: ReceiverSettings = settingsStore.load()) {
+    fun start(settings: ReceiverSettings = settingsStore.load()): Boolean {
         Log.d(TAG, "Starting AirPlay server: ${settings.deviceName}")
+        currentError = null
+        if (!nativeBridge.start(settings.deviceName)) {
+            currentError = "AirPlay receiver engine is not included in this build"
+            currentState = AirPlayConnectionState.Error
+            return false
+        }
         currentState = AirPlayConnectionState.Discovering
-        // Native implementation would handle discovery
-        nativeBridge.start(settings.deviceName)
+        return true
     }
 
     fun stop() {
         Log.d(TAG, "Stopping AirPlay server")
         nativeBridge.stop()
-        currentState = AirPlayConnectionState.Idle
         currentStreamInfo = StreamInfo()
+        currentError = null
+        currentState = AirPlayConnectionState.Idle
     }
 
     fun registerStateCallback(callback: (AirPlayConnectionState, StreamInfo, String?) -> Unit) {
@@ -57,36 +63,28 @@ class AirPlayManager private constructor(context: Context) {
         callback(currentState, currentStreamInfo, currentError)
     }
 
-    fun unregisterStateCallback() {
-        _stateCallbacks.clear()
+    fun unregisterStateCallback(callback: (AirPlayConnectionState, StreamInfo, String?) -> Unit) {
+        _stateCallbacks.remove(callback)
     }
 
     private fun notifyStateChange(state: AirPlayConnectionState) {
         _stateCallbacks.forEach { it(state, currentStreamInfo, currentError) }
     }
 
-    private fun notifyStreamStarted(info: StreamInfo) {
-        currentStreamInfo = info
-        currentError = null
-        _stateCallbacks.forEach { it(currentState, info, null) }
-    }
-
     fun onNativeStreamStarted(name: String, model: String, width: Int, height: Int, fps: Int,
                               sampleRate: Int, channels: Int, isMirroring: Boolean) {
+        currentStreamInfo = StreamInfo(name, model, width, height, fps, sampleRate, channels, isMirroring, true)
+        currentError = null
         currentState = AirPlayConnectionState.Streaming
-        notifyStreamStarted(
-            StreamInfo(name, model, width, height, fps, sampleRate, channels, isMirroring, true)
-        )
     }
 
     fun onNativeStreamStopped() {
-        currentState = AirPlayConnectionState.Idle
         currentStreamInfo = StreamInfo()
-        notifyStateChange(AirPlayConnectionState.Idle)
+        currentState = AirPlayConnectionState.Discovering
     }
 
     fun onNativeError(error: String) {
         currentError = error
-        _stateCallbacks.forEach { it(currentState, currentStreamInfo, error) }
+        currentState = AirPlayConnectionState.Error
     }
 }
