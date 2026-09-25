@@ -28,6 +28,10 @@ class AudioRenderer {
 
     private var codec: MediaCodec? = null
     private var track: AudioTrack? = null
+
+    // For the stats overlay: which path is active and its compressed input rate.
+    private val inputRate = RateMeter()
+    @Volatile private var activeStats: AudioStats? = null
     private val pendingFrames = ArrayDeque<ByteArray>()
     private val freeInputs = ArrayDeque<Int>()
     private var droppedFrames = 0L
@@ -40,6 +44,7 @@ class AudioRenderer {
 
     fun render(frame: ByteArray) {
         if (frame.isEmpty()) return
+        inputRate.record(frame.size)
         synchronized(lock) {
             if (codec == null) startCodecLocked()
             if (codec == null) return
@@ -55,8 +60,11 @@ class AudioRenderer {
     }
 
     /** Plays interleaved S16 stereo PCM at 44.1 kHz. */
-    fun renderPcm(pcm: ByteArray) {
+    /** [compressedBytes]: size of the ALAC frame [pcm] was decoded from, for the bitrate stat. */
+    fun renderPcm(pcm: ByteArray, compressedBytes: Int = 0) {
         if (pcm.isEmpty()) return
+        inputRate.record(compressedBytes)
+        if (activeStats?.codec != ALAC_STATS.codec) activeStats = ALAC_STATS
         if (pendingPcm.get() >= MAX_PENDING_PCM) {
             synchronized(lock) { droppedFrames++ }
             return
@@ -92,8 +100,13 @@ class AudioRenderer {
         }
     }
 
+    /** What is being played, for the stats overlay; null when no audio is active. */
+    fun stats(): AudioStats? = activeStats?.copy(bitrateBps = inputRate.bitsPerSecond())
+
     fun stop() {
         generation.incrementAndGet()
+        activeStats = null
+        inputRate.reset()
         synchronized(lock) {
             releaseLocked()
             if (droppedFrames > 0) Log.i(TAG, "Session ended, $droppedFrames audio frames dropped")
@@ -119,6 +132,7 @@ class AudioRenderer {
             decoder.start()
             codec = decoder
             Log.i(TAG, "AAC-ELD decoder started: ${decoder.name}")
+            activeStats = AudioStats("AAC-ELD", SAMPLE_RATE, CHANNELS, bitsPerSample = 16, decoder = decoder.name)
         } catch (error: Exception) {
             Log.e(TAG, "Unable to start AAC-ELD decoder", error)
             decoder.release()
@@ -267,5 +281,10 @@ class AudioRenderer {
          * ahead of playback, and that initial burst must not be dropped.
          */
         const val MAX_PENDING_PCM = 375
+
+        /** AirPlay's fixed ALAC format, decoded by Apple's reference decoder in the app. */
+        val ALAC_STATS = AudioStats(
+            "ALAC", sampleRate = 44100, channels = 2, bitsPerSample = 16, decoder = "Apple ALAC (in app)"
+        )
     }
 }

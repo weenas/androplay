@@ -61,6 +61,11 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
             item { ChoiceSetting("Mirroring Resolution", settings.resolution, ReceiverSettings.RESOLUTIONS) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
             item { ChoiceSetting("Mirroring Frame Rate", settings.frameRate, ReceiverSettings.FRAME_RATES) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
             item {
+                SwitchSetting("Show playback stats", settings.showStats) { enabled ->
+                    viewModel.updateSettings { it.copy(showStats = enabled) }
+                }
+            }
+            item {
                 ChoiceSetting("Mirroring Codec", settings.videoCodec, ReceiverSettings.VIDEO_CODECS) {
                     viewModel.updateSettings { current -> current.copy(videoCodec = it) }
                 }

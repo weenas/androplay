@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import com.androplay.service.DacpClient
 import com.androplay.service.NowPlaying
+import com.androplay.service.StatsFormat
+import androidx.compose.ui.text.font.FontFamily
 import com.androplay.service.NetworkStatus
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,19 +53,22 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
     val state by viewModel.state.collectAsState()
 
     // Mirroring and AirPlay video own the whole screen: no app bar, no padding, just the picture.
-    if (state.connectionState == AirPlayConnectionState.Streaming) {
-        if (state.streamInfo.isVideoPlayback) {
-            VideoPlayback(viewModel = viewModel)
-            return
+    val stream = state.streamInfo
+    if (state.connectionState == AirPlayConnectionState.Streaming &&
+        (stream.isVideoPlayback || stream.isAudioOnly || stream.isMirroring)
+    ) {
+        val settings by viewModel.settings.collectAsState()
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                stream.isVideoPlayback -> VideoPlayback(viewModel = viewModel)
+                stream.isAudioOnly -> AudioPlayback(nowPlaying = stream.nowPlaying, onCommand = viewModel::remoteControl)
+                else -> MirroringVideo(viewModel = viewModel, streamInfo = stream)
+            }
+            if (settings.showStats) {
+                StatsOverlay(viewModel, Modifier.align(Alignment.TopStart).padding(24.dp))
+            }
         }
-        if (state.streamInfo.isAudioOnly) {
-            AudioPlayback(nowPlaying = state.streamInfo.nowPlaying, onCommand = viewModel::remoteControl)
-            return
-        }
-        if (state.streamInfo.isMirroring) {
-            MirroringVideo(viewModel = viewModel, streamInfo = state.streamInfo)
-            return
-        }
+        return
     }
 
     Scaffold(
@@ -513,6 +518,61 @@ fun VideoPlayback(viewModel: AirPlayViewModel) {
 }
 
 private const val SEEK_STEP_SEC = 10
+
+/** "Stats for nerds": what is playing and how, refreshed every second. */
+@Composable
+fun StatsOverlay(viewModel: AirPlayViewModel, modifier: Modifier = Modifier) {
+    var stats by remember { mutableStateOf(viewModel.playbackStats()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            stats = viewModel.playbackStats()
+            delay(1000)
+        }
+    }
+    val current = stats ?: return
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xB3000000))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        StatsLine(current.source, "", bold = true)
+        current.video?.let { video ->
+            StatsLine(
+                "Video",
+                listOf(
+                    video.codec, StatsFormat.resolution(video.width, video.height),
+                    StatsFormat.fps(video.fps), StatsFormat.bitrate(video.bitrateBps)
+                ).joinToString(" · ")
+            )
+            StatsLine("", listOfNotNull(video.decoder, "dropped ${video.droppedFrames}").joinToString(" · "))
+        }
+        current.audio?.let { audio ->
+            StatsLine(
+                "Audio",
+                listOf(audio.codec, StatsFormat.audioFormat(audio), StatsFormat.bitrate(audio.bitrateBps))
+                    .joinToString(" · ")
+            )
+            audio.decoder?.let { StatsLine("", it) }
+        }
+        current.extra.forEach { (label, value) -> StatsLine(label, value) }
+    }
+}
+
+@Composable
+private fun StatsLine(label: String, value: String, bold: Boolean = false) {
+    Row {
+        Text(
+            label,
+            color = if (bold) Color.White else Color(0xFFB0B0B0),
+            fontSize = 14.sp,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+            fontFamily = FontFamily.Monospace,
+            modifier = if (bold) Modifier else Modifier.width(80.dp)
+        )
+        Text(value, color = Color.White, fontSize = 14.sp, fontFamily = FontFamily.Monospace)
+    }
+}
 
 /** Full-screen mirrored picture, letterboxed to the sender's aspect ratio. */
 @Composable

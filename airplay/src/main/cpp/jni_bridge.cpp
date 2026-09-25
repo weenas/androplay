@@ -80,7 +80,7 @@ void audioProcess(void *, raop_ntp_t *, audio_decode_struct *data) {
         static androplay::AlacDecoder decoder;
         static std::vector<int16_t> pcm;
         if (decoder.decode(data->data, data->data_len, pcm)) {
-            androplay::dispatchPcm(pcm.data(), static_cast<int>(pcm.size()), ptsUs);
+            androplay::dispatchPcm(pcm.data(), static_cast<int>(pcm.size()), ptsUs, data->data_len);
         } else {
             LOGE("Dropped a corrupt ALAC frame (%d bytes)", data->data_len);
         }

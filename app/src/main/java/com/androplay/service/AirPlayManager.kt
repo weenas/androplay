@@ -30,12 +30,13 @@ class AirPlayManager private constructor(context: Context) {
         onConnectionStarted = ::onNativeConnectionStarted,
         onVideoData = { data, pts, isH265 -> onNativeVideoData(data, pts, isH265) },
         onAudioData = { data, _ -> audioRenderer.render(data) },
-        onPcmData = { data, _ -> onPcmAudio(data) },
+        onPcmData = { data, _, compressedBytes -> onPcmAudio(data, compressedBytes) },
         onAudioFlush = {
             audioRenderer.flush()
             updateNowPlaying { it.paused() }
         },
         onVolume = { db ->
+            volumeDb = db
             val gain = AirPlayVolume.toGain(db)
             audioRenderer.setVolume(gain)
             hlsPlayer.setVolume(gain)
@@ -92,6 +93,8 @@ class AirPlayManager private constructor(context: Context) {
     }
     private val hlsPlayer = HlsPlayer(context, onFinished = ::onVideoStopped)
     @Volatile private var nowPlaying = NowPlaying()
+    /** The sender's last volume (AirPlay dB), for the stats overlay. */
+    @Volatile private var volumeDb: Float? = null
     private val dacp = DacpClient(context)
     private val mediaSession = NowPlayingSession(context, onCommand = ::remoteControl)
 
@@ -244,8 +247,8 @@ class AirPlayManager private constructor(context: Context) {
      * Audio streaming (music apps) has no picture, so the first PCM frame switches the screen
      * from "Connecting" to what is playing.
      */
-    private fun onPcmAudio(pcm: ByteArray) {
-        audioRenderer.renderPcm(pcm)
+    private fun onPcmAudio(pcm: ByteArray, compressedBytes: Int) {
+        audioRenderer.renderPcm(pcm, compressedBytes)
         lastAudioAtMs = android.os.SystemClock.elapsedRealtime()
         if (!nowPlaying.playing) updateNowPlaying { it.resumed() }
         if (currentState == AirPlayConnectionState.Connecting) {
@@ -268,6 +271,21 @@ class AirPlayManager private constructor(context: Context) {
             if (nowPlaying.stalled(lastAudio)) updateNowPlaying { it.paused(nowMs = lastAudio) }
             mainHandler.postDelayed(this, PAUSE_CHECK_MS)
         }
+    }
+
+    /** A "stats for nerds" snapshot of the current stream. Main thread; null when idle. */
+    fun playbackStats(): PlaybackStats? {
+        val stream = currentStreamInfo
+        val stats = when {
+            stream.isVideoPlayback -> hlsPlayer.stats() ?: return null
+            stream.isMirroring -> PlaybackStats("Screen mirroring", videoRenderer.stats(), audioRenderer.stats())
+            stream.isAudioOnly -> PlaybackStats("AirPlay audio", audio = audioRenderer.stats())
+            else -> return null
+        }
+        val volume = volumeDb?.let { db ->
+            if (db <= AirPlayVolume.MIN_DB) "muted" else "%.1f dB".format(java.util.Locale.US, db)
+        }
+        return if (volume == null) stats else stats.copy(extra = stats.extra + ("Volume" to volume))
     }
 
     /** TV-remote control of AirPlay video (e.g. YouTube): pause/resume. */

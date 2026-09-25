@@ -39,6 +39,12 @@ class VideoRenderer(
     private var droppedFrames = 0L
     private var renderedFrames = 0L
 
+    // For the stats overlay.
+    private val inputRate = RateMeter()
+    @Volatile private var decoderName: String? = null
+    @Volatile private var frameWidth = 0
+    @Volatile private var frameHeight = 0
+
     private class Frame(val data: ByteArray, val presentationTimeUs: Long, val flags: Int) {
         val isConfig: Boolean get() = flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
     }
@@ -82,6 +88,7 @@ class VideoRenderer(
      */
     fun render(accessUnit: ByteArray, presentationTimeUs: Long): Boolean {
         if (accessUnit.isEmpty()) return false
+        inputRate.record(accessUnit.size)
         synchronized(lock) {
             val nal = scanNals(accessUnit)
 
@@ -119,6 +126,20 @@ class VideoRenderer(
         }
     }
 
+    /** What is being decoded, for the stats overlay; null when no stream is active. */
+    fun stats(): VideoStats? {
+        val name = decoderName ?: return null
+        return VideoStats(
+            codec = StatsFormat.codecName(mimeType),
+            width = frameWidth,
+            height = frameHeight,
+            fps = inputRate.perSecond(),
+            bitrateBps = inputRate.bitsPerSecond(),
+            decoder = name,
+            droppedFrames = synchronized(lock) { droppedFrames }
+        )
+    }
+
     fun stop() {
         synchronized(lock) {
             releaseCodecLocked()
@@ -128,6 +149,10 @@ class VideoRenderer(
             pendingFrames.clear()
             awaitingKeyFrame = true
             if (droppedFrames > 0) Log.i(TAG, "Session ended, $droppedFrames video frames dropped")
+            decoderName = null
+            frameWidth = 0
+            frameHeight = 0
+            inputRate.reset()
             droppedFrames = 0
         }
     }
@@ -181,6 +206,7 @@ class VideoRenderer(
             renderedFrames = 0
             codecConfig?.let { pendingFrames.addFirst(Frame(it, 0, MediaCodec.BUFFER_FLAG_CODEC_CONFIG)) }
             decoder.start()
+            decoderName = decoder.name
         } catch (error: Exception) {
             Log.e(TAG, "Unable to start $mimeType decoder", error)
             codec = null
@@ -248,7 +274,11 @@ class VideoRenderer(
             } else {
                 format.getInteger(MediaFormat.KEY_HEIGHT)
             }
-            if (width > 0 && height > 0) onFrameSizeChanged(width, height)
+            if (width > 0 && height > 0) {
+                frameWidth = width
+                frameHeight = height
+                onFrameSizeChanged(width, height)
+            }
         }
 
         override fun onError(mc: MediaCodec, error: MediaCodec.CodecException) {

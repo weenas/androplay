@@ -18,7 +18,7 @@ class NativeBridge(
     private val onConnectionStarted: () -> Unit,
     private val onVideoData: (ByteArray, Long, Boolean) -> Unit,
     private val onAudioData: (ByteArray, Long) -> Unit,
-    private val onPcmData: (ByteArray, Long) -> Unit,
+    private val onPcmData: (ByteArray, Long, Int) -> Unit,
     private val onAudioFlush: () -> Unit,
     private val onVolume: (Float) -> Unit,
     private val audioInfo: AudioInfoListener,
@@ -68,8 +68,8 @@ class NativeBridge(
                 this@NativeBridge.onAudioData(data, presentationTimeUs)
             }
 
-            override fun onPcmData(data: ByteArray, presentationTimeUs: Long) {
-                this@NativeBridge.onPcmData(data, presentationTimeUs)
+            override fun onPcmData(data: ByteArray, presentationTimeUs: Long, compressedBytes: Int) {
+                this@NativeBridge.onPcmData(data, presentationTimeUs, compressedBytes)
             }
 
             override fun onAudioFlush() {

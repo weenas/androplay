@@ -45,7 +45,7 @@ void setAudioSink(JNIEnv *env, jobject sink) {
     g_sink = env->NewGlobalRef(sink);
     jclass cls = env->GetObjectClass(sink);
     g_on_audio = env->GetMethodID(cls, "onAudioData", "([BJ)V");
-    g_on_pcm = env->GetMethodID(cls, "onPcmData", "([BJ)V");
+    g_on_pcm = env->GetMethodID(cls, "onPcmData", "([BJI)V");
     g_on_flush = env->GetMethodID(cls, "onAudioFlush", "()V");
     g_on_volume = env->GetMethodID(cls, "onVolume", "(F)V");
     g_on_metadata = env->GetMethodID(cls, "onMetadata", "([B)V");
@@ -79,9 +79,21 @@ void dispatchAudio(const uint8_t *data, int length, int64_t ptsUs) {
     callWithBytes(g_on_audio, data, length, ptsUs);
 }
 
-void dispatchPcm(const int16_t *samples, int count, int64_t ptsUs) {
+void dispatchPcm(const int16_t *samples, int count, int64_t ptsUs, int compressedBytes) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    callWithBytes(g_on_pcm, samples, count * static_cast<int>(sizeof(int16_t)), ptsUs);
+    const int length = count * static_cast<int>(sizeof(int16_t));
+    if (!g_sink || !g_on_pcm || !samples || length <= 0) return;
+    JNIEnv *env = currentEnv();
+    if (!env) return;
+    jbyteArray bytes = env->NewByteArray(length);
+    if (!bytes) return;
+    env->SetByteArrayRegion(bytes, 0, length, reinterpret_cast<const jbyte *>(samples));
+    env->CallVoidMethod(g_sink, g_on_pcm, bytes, static_cast<jlong>(ptsUs), static_cast<jint>(compressedBytes));
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
+    env->DeleteLocalRef(bytes);
 }
 
 namespace {
