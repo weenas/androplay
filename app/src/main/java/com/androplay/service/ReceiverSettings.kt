@@ -6,8 +6,15 @@ data class ReceiverSettings(
     val deviceName: String = "AndroPlay",
     val resolution: String = RESOLUTION_AUTO,
     val frameRate: String = FRAME_RATE_AUTO,
-    /** Password senders must enter to connect; blank = anyone on the network can. */
+    /** Whether senders must enter [pin]; otherwise anyone on the network can cast. */
+    val requirePassword: Boolean = false,
+    /** The password (digits) used when [requirePassword] is on; kept when it is turned off. */
     val pin: String = "",
+    /**
+     * What happens when another device casts while one is connected: true = it takes over
+     * (the current one is disconnected), false = it is refused.
+     */
+    val allowTakeover: Boolean = false,
     /** Start the receiver when the TV boots, so it is always ready like an Apple TV. */
     val startOnBoot: Boolean = true
 ) {
@@ -33,7 +40,7 @@ data class ReceiverSettings(
     fun maxFps(): Int = if (frameRate == "30 FPS") 30 else 60
 
     /** The client-access password to enforce, or "" when access is open. */
-    fun accessPassword(): String = pin.takeIf { isValidPin(it) }.orEmpty()
+    fun requiredPin(): String = pin.takeIf { requirePassword && isValidPin(it) }.orEmpty()
 
     companion object {
         const val RESOLUTION_AUTO = "Auto"
@@ -60,6 +67,12 @@ class ReceiverSettingsStore(context: Context) {
         frameRate = preferences.getString("frame_rate", null)
             ?.takeIf { it in ReceiverSettings.FRAME_RATES } ?: ReceiverSettings.FRAME_RATE_AUTO,
         pin = preferences.getString("pin", "").orEmpty(),
+        // Before this setting existed, a saved PIN meant "required".
+        requirePassword = preferences.getBoolean(
+            "require_password",
+            ReceiverSettings.isValidPin(preferences.getString("pin", "").orEmpty())
+        ),
+        allowTakeover = preferences.getBoolean("allow_takeover", false),
         startOnBoot = preferences.getBoolean("start_on_boot", true)
     )
 
@@ -69,6 +82,8 @@ class ReceiverSettingsStore(context: Context) {
             .putString("resolution", settings.resolution)
             .putString("frame_rate", settings.frameRate)
             .putString("pin", settings.pin)
+            .putBoolean("require_password", settings.requirePassword)
+            .putBoolean("allow_takeover", settings.allowTakeover)
             .putBoolean("start_on_boot", settings.startOnBoot)
             .remove("audio_latency")
             .apply()

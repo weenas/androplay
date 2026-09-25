@@ -109,7 +109,8 @@ class AirPlayManager private constructor(context: Context) {
             discoveryAdvertiser.hardwareAddress(),
             settings.displaySize(displayMode.physicalWidth, displayMode.physicalHeight),
             settings.maxFps(),
-            settings.accessPassword()
+            settings.requiredPin(),
+            settings.allowTakeover
         )
         if (!discoveryAdvertiser.start(
                 settings.deviceName,

@@ -37,8 +37,20 @@ class ReceiverSettingsTest {
         assertTrue(ReceiverSettings.isValidPin("123456"))
         assertFalse(ReceiverSettings.isValidPin("123"))
         assertFalse(ReceiverSettings.isValidPin("12a4"))
-        assertEquals("", ReceiverSettings(pin = "").accessPassword())
-        assertEquals("", ReceiverSettings(pin = "12").accessPassword())
-        assertEquals("2468", ReceiverSettings(pin = "2468").accessPassword())
+        assertEquals("", ReceiverSettings(requirePassword = true, pin = "").requiredPin())
+        assertEquals("", ReceiverSettings(requirePassword = true, pin = "12").requiredPin())
+        assertEquals("2468", ReceiverSettings(requirePassword = true, pin = "2468").requiredPin())
+    }
+
+    @Test
+    fun passwordIsOnlyEnforcedWhenRequired() {
+        // The PIN is remembered while access is open, so switching back needs no retyping.
+        assertEquals("", ReceiverSettings(requirePassword = false, pin = "2468").requiredPin())
+    }
+
+    @Test
+    fun newSendersAreRefusedByDefault() {
+        assertEquals(false, ReceiverSettings().allowTakeover)
+        assertEquals(false, ReceiverSettings().requirePassword)
     }
 }

@@ -133,13 +133,21 @@ void videoReset(void *cls, reset_type_t type) {
     LOGI("AirPlay video reset (type %d)", static_cast<int>(type));
     switch (type) {
     case RESET_TYPE_NOHOLD:
+        // A new sender took over: UxPlay is dropping the old connections. End the old
+        // session on screen and show the new sender as connecting.
+        LOGI("New sender took over the receiver");
+        onVideoStop(cls);
+        if (g_raop) raop_destroy_airplay_video(g_raop, -1);
+        androplay::dispatchSessionEnd();
+        callStatic(g_on_connection_started);
+        break;
     case RESET_TYPE_HLS_SHUTDOWN:
         // Same cleanup as UxPlay's own video_reset: forget the playlist and drop the
         // local player's HLS connections.
         onVideoStop(cls);
         if (g_raop) {
             raop_destroy_airplay_video(g_raop, -1);
-            if (type == RESET_TYPE_HLS_SHUTDOWN) raop_remove_hls_connections(g_raop);
+            raop_remove_hls_connections(g_raop);
         }
         break;
     case RESET_TYPE_HLS_EOS:
@@ -337,7 +345,8 @@ void stopLocked() {
 extern "C" JNIEXPORT jint JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeStart(
     JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile,
-    jstring language, jint displayWidth, jint displayHeight, jint maxFps, jstring password) {
+    jstring language, jint displayWidth, jint displayHeight, jint maxFps, jstring password,
+    jboolean allowTakeover) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     stopLocked();
     if (!deviceName || !hardwareAddress || !keyFile || !language || !password ||
@@ -408,7 +417,8 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
 
     // The key file keeps the pairing identity stable across restarts.
     const char *key_path = env->GetStringUTFChars(keyFile, nullptr);
-    int init2 = key_path ? raop_init2(g_raop, 0, device_id, key_path) : -1;
+    // nohold: 0 = a new sender is refused (409) while one is connected; 1 = it takes over.
+    int init2 = key_path ? raop_init2(g_raop, allowTakeover ? 1 : 0, device_id, key_path) : -1;
     if (key_path) env->ReleaseStringUTFChars(keyFile, key_path);
     if (init2 != 0) {
         LOGE("raop_init2 failed");
