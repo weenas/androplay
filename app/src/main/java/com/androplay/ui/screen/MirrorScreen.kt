@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -103,7 +105,7 @@ fun IdleScreen(onStart: () -> Unit) {
         Spacer(modifier = Modifier.height(48.dp))
         Button(
             onClick = onStart,
-            modifier = Modifier.width(200.dp)
+            modifier = Modifier.width(200.dp).initialFocus()
         ) {
             Text("Start", fontSize = 20.sp)
         }
@@ -119,7 +121,7 @@ fun DiscoveringScreen(onStop: () -> Unit) {
     ) {
         Text("Waiting for an AirPlay connection...", color = Color.White)
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onStop) { Text("Stop") }
+        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
     }
 }
 
@@ -132,7 +134,7 @@ fun RegisteringScreen(onStop: () -> Unit) {
     ) {
         Text("Publishing AndroPlay on the local network...", color = Color.White)
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onStop) { Text("Stop") }
+        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
     }
 }
 
@@ -147,7 +149,7 @@ fun AdvertisingOnlyScreen(onStop: () -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
         Text("Discovery preview only — AirPlay streaming is not available yet.", color = Color.Gray)
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onStop) { Text("Stop") }
+        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
     }
 }
 
@@ -176,7 +178,7 @@ fun ConnectedScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
         Spacer(modifier = Modifier.height(8.dp))
         Text("${streamInfo.videoWidth}x${streamInfo.videoHeight}", color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = { viewModel.stopServer() }) {
+        Button(onClick = { viewModel.stopServer() }, modifier = Modifier.initialFocus()) {
             Text("Stop", fontSize = 20.sp)
         }
     }
@@ -195,7 +197,7 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
         Spacer(modifier = Modifier.height(16.dp))
         Text("Source: ${streamInfo.sourceName}", color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = { viewModel.stopServer() }) {
+        Button(onClick = { viewModel.stopServer() }, modifier = Modifier.initialFocus()) {
             Text("Stop", fontSize = 20.sp)
         }
     }
@@ -247,7 +249,7 @@ fun DisconnectedScreen(onStart: () -> Unit) {
     ) {
         Text("Disconnected", fontSize = 32.sp, color = Color.White)
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onStart) {
+        Button(onClick = onStart, modifier = Modifier.initialFocus()) {
             Text("Start", fontSize = 20.sp)
         }
     }
@@ -266,8 +268,16 @@ fun ErrorScreen(error: String, onRetry: () -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
         Text(error, color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onRetry) {
+        Button(onClick = onRetry, modifier = Modifier.initialFocus()) {
             Text("Retry", fontSize = 20.sp)
         }
     }
+}
+
+/** Moves D-pad focus to this element when it first appears, so the primary action is one OK press away. */
+@Composable
+private fun Modifier.initialFocus(): Modifier {
+    val requester = remember { FocusRequester() }
+    LaunchedEffect(requester) { requester.requestFocus() }
+    return focusRequester(requester)
 }

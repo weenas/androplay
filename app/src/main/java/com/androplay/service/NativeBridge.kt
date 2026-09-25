@@ -3,11 +3,13 @@ package com.androplay.service
 import android.content.Context
 import android.util.Log
 import com.androplay.protocol.AirPlayNative
+import com.androplay.protocol.AudioSink
 import com.androplay.protocol.VideoSink
 
 class NativeBridge(
     private val onConnectionStarted: () -> Unit,
     private val onVideoData: (ByteArray, Long) -> Unit,
+    private val onAudioData: (ByteArray, Long) -> Unit,
     private val onSessionEnd: () -> Unit
 ) {
     companion object {
@@ -38,6 +40,11 @@ class NativeBridge(
 
             override fun onSessionEnd() {
                 this@NativeBridge.onSessionEnd.invoke()
+            }
+        })
+        AirPlayNative.setAudioSink(object : AudioSink {
+            override fun onAudioData(data: ByteArray, presentationTimeUs: Long) {
+                this@NativeBridge.onAudioData(data, presentationTimeUs)
             }
         })
     }
