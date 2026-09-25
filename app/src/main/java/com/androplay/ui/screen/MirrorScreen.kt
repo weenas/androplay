@@ -3,6 +3,8 @@ package com.androplay.ui.screen
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import android.graphics.BitmapFactory
 import android.os.SystemClock
 import androidx.compose.foundation.Image
@@ -14,6 +16,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import com.androplay.service.DacpClient
 import com.androplay.service.NowPlaying
+import com.androplay.service.NetworkStatus
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -80,9 +86,11 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
         ) {
             when (state.connectionState) {
                 AirPlayConnectionState.Idle -> IdleScreen(
+                    viewModel = viewModel,
                     onStart = { viewModel.startServer() }
                 )
                 AirPlayConnectionState.Discovering -> DiscoveringScreen(
+                    viewModel = viewModel,
                     lastError = state.errorMessage,
                     onStop = { viewModel.stopServer() }
                 )
@@ -114,14 +122,8 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
 }
 
 @Composable
-fun IdleScreen(onStart: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit) {
+    HomeLayout(info = { ReceiverInfo(viewModel = viewModel) }) {
         Text(
             text = "AndroPlay",
             fontSize = 48.sp,
@@ -145,20 +147,121 @@ fun IdleScreen(onStart: () -> Unit) {
 }
 
 @Composable
-fun DiscoveringScreen(lastError: String? = null, onStop: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text("Waiting for an AirPlay connection...", color = Color.White)
+fun DiscoveringScreen(viewModel: AirPlayViewModel, lastError: String? = null, onStop: () -> Unit) {
+    HomeLayout(info = { ReceiverInfo(viewModel = viewModel) }) {
+        val settings by viewModel.settings.collectAsState()
+        Text("Waiting for an AirPlay connection...", color = Color.White, fontSize = 28.sp)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            "On iPhone or iPad: Control Center → Screen Mirroring → ${settings.deviceName}. " +
+                "In apps, tap the AirPlay icon.",
+            color = Color.White,
+            fontSize = 18.sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text("Your device must be on the same network as the TV.", color = Color.Gray, fontSize = 16.sp)
         if (lastError != null) {
             // Why the last AirPlay video stopped, e.g. the TV couldn't reach the video site.
             Spacer(modifier = Modifier.height(16.dp))
             Text(lastError, color = Color(0xFFFFB4AB), fontSize = 18.sp)
         }
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
+    }
+}
+
+/**
+ * Status and actions beside the receiver info on wide screens (TVs are only ~540 dp tall at
+ * 1080p), stacked and scrollable on narrow ones.
+ */
+@Composable
+private fun HomeLayout(info: @Composable () -> Unit, primary: @Composable ColumnScope.() -> Unit) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        if (maxWidth >= 840.dp) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    content = primary
+                )
+                Spacer(modifier = Modifier.width(48.dp))
+                Box(modifier = Modifier.weight(1.2f)) { info() }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                primary()
+                Spacer(modifier = Modifier.height(32.dp))
+                info()
+            }
+        }
+    }
+}
+
+/**
+ * What a user needs to cast to this TV at a glance: its AirPlay name, network and address,
+ * and how the receiver is set up.
+ */
+@Composable
+fun ReceiverInfo(viewModel: AirPlayViewModel) {
+    val settings by viewModel.settings.collectAsState()
+    val network by viewModel.network.collectAsState()
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        viewModel.refreshNetwork()
+    }
+
+    Column(
+        modifier = Modifier
+            .widthIn(max = 720.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0x1FFFFFFF))
+            .padding(horizontal = 32.dp, vertical = 24.dp)
+    ) {
+        InfoRow("Name", settings.deviceName)
+        InfoRow("Network", networkLabel(network))
+        if (network.type == NetworkStatus.Type.WIFI && network.ssid == null) {
+            if (!viewModel.canReadWifiName()) {
+                // Android only reveals the Wi-Fi name to apps with the location permission.
+                TextButton(onClick = { permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }) {
+                    Text("Show Wi-Fi name")
+                }
+            } else {
+                Text("Turn on Location in the TV settings to show the Wi-Fi name.", color = Color.Gray, fontSize = 14.sp)
+            }
+        }
+        InfoRow("IP address", network.ipv4.joinToString(", ").ifEmpty { "—" })
+        InfoRow("Password", if (settings.requirePassword) "Required" else "Not required")
+        InfoRow("Second device", if (settings.allowTakeover) "Takes over" else "Refused")
+        InfoRow("Version", viewModel.appVersion)
+        if (network.type == NetworkStatus.Type.NONE) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("The TV is not connected to a network.", color = Color(0xFFFFB4AB), fontSize = 16.sp)
+        }
+    }
+}
+
+private fun networkLabel(network: NetworkStatus): String = when (network.type) {
+    NetworkStatus.Type.WIFI -> network.ssid?.let { "Wi-Fi · $it" } ?: "Wi-Fi"
+    NetworkStatus.Type.ETHERNET -> "Wired (Ethernet)"
+    NetworkStatus.Type.OTHER -> "Connected"
+    NetworkStatus.Type.NONE -> "Not connected"
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(label, color = Color.Gray, fontSize = 18.sp, modifier = Modifier.weight(0.45f))
+        Text(value, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(0.55f))
     }
 }
 
