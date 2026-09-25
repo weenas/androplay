@@ -33,7 +33,7 @@ class AirPlayManager private constructor(context: Context) {
             override fun onPlay(url: String, startPositionSec: Float) = onVideoPlay(url, startPositionSec)
             override fun onSeek(positionSec: Float) = hlsPlayer.seek(positionSec)
             override fun onRate(rate: Float) = hlsPlayer.setRate(rate)
-            override fun onStop() = onVideoStopped()
+            override fun onStop() = onVideoStopped(null)
             override fun playbackInfo(): DoubleArray = hlsPlayer.playbackInfo()
         },
         onSessionEnd = ::onNativeStreamStopped
@@ -166,10 +166,12 @@ class AirPlayManager private constructor(context: Context) {
         }
     }
 
-    private fun onVideoStopped() {
+    /** [error] is shown on the waiting screen until the next connection. */
+    private fun onVideoStopped(error: String?) {
         hlsPlayer.stop()
         if (currentStreamInfo.isVideoPlayback) {
             currentStreamInfo = StreamInfo()
+            currentError = error
             currentState = AirPlayConnectionState.Discovering
         }
     }

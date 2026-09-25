@@ -23,8 +23,11 @@ import com.androplay.protocol.AirPlayNative
  */
 class HlsPlayer(
     context: Context,
-    /** Called on the main thread when playback ends on its own or fails. */
-    private val onFinished: () -> Unit
+    /**
+     * Called on the main thread when playback ends on its own (null) or fails (a short,
+     * user-facing reason).
+     */
+    private val onFinished: (error: String?) -> Unit
 ) {
     private val appContext = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
@@ -55,15 +58,15 @@ class HlsPlayer(
             updateSnapshot()
             if (state == Player.STATE_ENDED) {
                 Log.i(TAG, "Playback ended")
-                finish()
+                finish(null)
             }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) = updateSnapshot()
 
         override fun onPlayerError(error: PlaybackException) {
-            Log.e(TAG, "Playback failed", error)
-            finish()
+            Log.e(TAG, "Playback failed (${error.errorCodeName})", error)
+            finish(describe(error))
         }
     }
 
@@ -121,11 +124,29 @@ class HlsPlayer(
         )
     }
 
-    private fun finish() {
+    private fun finish(error: String?) {
         release()
         // Tells the sender the video is over, so it ends the session.
         snapshot = Snapshot(state = AirPlayNative.PLAYBACK_FINISHED)
-        onFinished()
+        onFinished(error)
+    }
+
+    private fun describe(error: PlaybackException): String = when (error.errorCode) {
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+            // The TV fetches the video itself, so a site the phone reaches only through a
+            // proxy or VPN is unreachable here (e.g. googlevideo.com for YouTube).
+            "Couldn't reach the video server. The TV must be able to access the video site directly."
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+        PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE ->
+            "The video server refused the request."
+        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+        PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FAILED,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ->
+            "This TV can't play the video's format."
+        else -> "Video playback failed (${error.errorCodeName})."
     }
 
     private fun release() {
