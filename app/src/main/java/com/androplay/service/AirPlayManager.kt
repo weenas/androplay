@@ -26,10 +26,12 @@ class AirPlayManager private constructor(context: Context) {
     private val nativeBridge = NativeBridge(
         onConnectionStarted = ::onNativeConnectionStarted,
         onVideoData = { data, pts -> onNativeVideoData(data, pts, false) },
+        onAudioData = { data, _ -> audioRenderer.render(data) },
         onSessionEnd = ::onNativeStreamStopped
     )
     private val discoveryAdvertiser = AirPlayDiscoveryAdvertiser(context)
     private val videoRenderer = VideoRenderer(onFrameSizeChanged = ::onFrameSizeChanged)
+    private val audioRenderer = AudioRenderer()
     private val settingsStore = ReceiverSettingsStore(context)
 
     private val _stateCallbacks = mutableListOf<(AirPlayConnectionState, StreamInfo, String?) -> Unit>()
@@ -84,6 +86,7 @@ class AirPlayManager private constructor(context: Context) {
         nativeBridge.stop()
         discoveryAdvertiser.stop()
         videoRenderer.stop()
+        audioRenderer.stop()
         currentStreamInfo = StreamInfo()
         currentError = null
         currentState = AirPlayConnectionState.Idle
@@ -114,6 +117,7 @@ class AirPlayManager private constructor(context: Context) {
 
     fun onNativeStreamStopped() {
         videoRenderer.stop()
+        audioRenderer.stop()
         currentStreamInfo = StreamInfo()
         currentState = AirPlayConnectionState.Discovering
     }
@@ -126,6 +130,7 @@ class AirPlayManager private constructor(context: Context) {
     fun onNativeError(error: String) {
         discoveryAdvertiser.stop()
         videoRenderer.stop()
+        audioRenderer.stop()
         currentError = error
         currentState = AirPlayConnectionState.Error
     }
