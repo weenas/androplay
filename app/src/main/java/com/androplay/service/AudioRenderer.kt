@@ -35,6 +35,8 @@ class AudioRenderer {
     /** Bumped by [flush] and [stop], so PCM queued before them is skipped. */
     private val generation = AtomicInteger()
     private val pendingPcm = AtomicInteger()
+    /** Linear gain from the sender's volume slider; kept across track re-creation. */
+    @Volatile private var volume = 1f
 
     fun render(frame: ByteArray) {
         if (frame.isEmpty()) return
@@ -68,6 +70,11 @@ class AudioRenderer {
             // Blocking write paces this thread to playback, as in the AAC path.
             output.write(pcm, 0, pcm.size)
         }
+    }
+
+    fun setVolume(gain: Float) {
+        volume = gain
+        synchronized(lock) { track?.setVolume(gain) }
     }
 
     /** Drops audio not yet played, e.g. when the sender pauses, seeks or skips a track. */
@@ -185,7 +192,10 @@ class AudioRenderer {
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(minBuffer * 2)
             .build()
-            .also { it.play() }
+            .also {
+                it.setVolume(volume)
+                it.play()
+            }
     }
 
     /** Callbacks run on the audio thread; [owner] guards against events from a released codec. */

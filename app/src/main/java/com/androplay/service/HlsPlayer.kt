@@ -37,6 +37,8 @@ class HlsPlayer(
         private set
 
     @Volatile private var snapshot = Snapshot()
+    /** Linear gain from the sender's volume slider; applied to each new player. */
+    @Volatile private var volume = 1f
 
     private data class Snapshot(
         val durationSec: Double = 0.0,
@@ -85,6 +87,7 @@ class HlsPlayer(
             it.addListener(listener)
             // States, selected formats, segment loads and errors, tagged "EventLogger".
             if (BuildConfig.DEBUG) it.addAnalyticsListener(EventLogger())
+            it.volume = volume
             player = it
         }
         // Usually the core's local .m3u8 (HLS), but senders may also pass a plain http(s)
@@ -106,6 +109,11 @@ class HlsPlayer(
             player?.playWhenReady = rate > 0f
             updateSnapshot()
         }
+    }
+
+    fun setVolume(gain: Float) {
+        volume = gain
+        main.post { player?.volume = gain }
     }
 
     fun stop() {

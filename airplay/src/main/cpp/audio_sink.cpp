@@ -11,6 +11,7 @@ jobject g_sink = nullptr;
 jmethodID g_on_audio = nullptr;
 jmethodID g_on_pcm = nullptr;
 jmethodID g_on_flush = nullptr;
+jmethodID g_on_volume = nullptr;
 std::mutex g_mutex;
 
 JNIEnv *currentEnv() {
@@ -32,6 +33,7 @@ void setAudioSink(JNIEnv *env, jobject sink) {
         g_on_audio = nullptr;
         g_on_pcm = nullptr;
         g_on_flush = nullptr;
+        g_on_volume = nullptr;
     }
     if (!sink) return;
     g_sink = env->NewGlobalRef(sink);
@@ -39,8 +41,9 @@ void setAudioSink(JNIEnv *env, jobject sink) {
     g_on_audio = env->GetMethodID(cls, "onAudioData", "([BJ)V");
     g_on_pcm = env->GetMethodID(cls, "onPcmData", "([BJ)V");
     g_on_flush = env->GetMethodID(cls, "onAudioFlush", "()V");
+    g_on_volume = env->GetMethodID(cls, "onVolume", "(F)V");
     env->DeleteLocalRef(cls);
-    if (!g_on_audio || !g_on_pcm || !g_on_flush) LOGE("Audio sink methods were not found");
+    if (!g_on_audio || !g_on_pcm || !g_on_flush || !g_on_volume) LOGE("Audio sink methods were not found");
 }
 
 namespace {
@@ -69,6 +72,18 @@ void dispatchAudio(const uint8_t *data, int length, int64_t ptsUs) {
 void dispatchPcm(const int16_t *samples, int count, int64_t ptsUs) {
     std::lock_guard<std::mutex> lock(g_mutex);
     callWithBytes(g_on_pcm, samples, count * static_cast<int>(sizeof(int16_t)), ptsUs);
+}
+
+void dispatchVolume(float db) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    if (!g_sink || !g_on_volume) return;
+    JNIEnv *env = currentEnv();
+    if (!env) return;
+    env->CallVoidMethod(g_sink, g_on_volume, static_cast<jfloat>(db));
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
 }
 
 void dispatchAudioFlush() {

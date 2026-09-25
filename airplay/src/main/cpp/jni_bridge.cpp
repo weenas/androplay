@@ -48,6 +48,8 @@ std::string g_lang_system;
  * local player's HLS fetches), so only the first opening and last closing count.
  */
 std::atomic<int> g_open_connections{0};
+/* The sender's last volume (AirPlay dB), reported back as the receiver's initial volume. */
+std::atomic<float> g_volume_db{0.0f};
 
 JNIEnv *currentEnv() {
     JavaVM *vm = androplay::jvm();
@@ -229,8 +231,13 @@ void audioGetFormat(void *, unsigned char *ct, unsigned short *spf, bool *usingS
  * The ones below have no Android behaviour yet.
  */
 void noop(void *) {}
-double audioSetClientVolume(void *) { return 0.0; /* dB; 0 is full volume */ }
-void audioSetVolume(void *, float) {}
+double audioSetClientVolume(void *) { return g_volume_db.load(); }
+
+void audioSetVolume(void *, float db) {
+    LOGI("AirPlay volume %.1f dB", db);
+    g_volume_db = db;
+    androplay::dispatchVolume(db);
+}
 void audioSetMetadata(void *, const void *, int) {}
 void audioSetCoverart(void *, const void *, int) {}
 void audioRemoteControlId(void *, const char *, const char *) {}
