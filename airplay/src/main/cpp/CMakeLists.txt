@@ -47,8 +47,36 @@ target_compile_options(plist PRIVATE
     -Wno-int-conversion
 )
 
+# Patch raop_rtp_mirror.c without touching the submodule: raop_rtp_mirror_stop() closes
+# mirror_data_sock and sets it to -1 while the mirror thread may be between select() and
+# FD_ISSET(). glibc tolerates FD_ISSET(-1); bionic's FORTIFY aborts the process, which
+# happened every time a sender stopped mirroring. Snapshot the fd once per iteration.
+file(READ ${RPIPLAY_LIB}/raop_rtp_mirror.c RAOP_RTP_MIRROR_C)
+# A function rather than a list: the snippets contain ';', which CMake lists split on.
+function(patch_raop_rtp_mirror from to)
+    string(FIND "${RAOP_RTP_MIRROR_C}" "${from}" at)
+    if(at EQUAL -1)
+        message(FATAL_ERROR "raop_rtp_mirror.c no longer matches the Android fd-race patch; update it")
+    endif()
+    string(REPLACE "${from}" "${to}" patched "${RAOP_RTP_MIRROR_C}")
+    set(RAOP_RTP_MIRROR_C "${patched}" PARENT_SCOPE)
+endfunction()
+patch_raop_rtp_mirror(
+    "        FD_ZERO(&rfds);\n        if (stream_fd == -1) {\n            FD_SET(raop_rtp_mirror->mirror_data_sock, &rfds);\n            nfds = raop_rtp_mirror->mirror_data_sock+1;"
+    "        FD_ZERO(&rfds);\n        int data_sock = raop_rtp_mirror->mirror_data_sock;\n        if (stream_fd == -1 && data_sock == -1) break;\n        if (stream_fd == -1) {\n            FD_SET(data_sock, &rfds);\n            nfds = data_sock+1;")
+patch_raop_rtp_mirror(
+    "if (stream_fd == -1 && FD_ISSET(raop_rtp_mirror->mirror_data_sock, &rfds))"
+    "if (stream_fd == -1 && FD_ISSET(data_sock, &rfds))")
+patch_raop_rtp_mirror(
+    "stream_fd = accept(raop_rtp_mirror->mirror_data_sock,"
+    "stream_fd = accept(data_sock,")
+set(RAOP_RTP_MIRROR_PATCHED ${CMAKE_CURRENT_BINARY_DIR}/patched/raop_rtp_mirror.c)
+file(WRITE ${RAOP_RTP_MIRROR_PATCHED} "${RAOP_RTP_MIRROR_C}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RPIPLAY_LIB}/raop_rtp_mirror.c)
+
 file(GLOB RPIPLAY_SRC ${RPIPLAY_LIB}/*.c)
-list(FILTER RPIPLAY_SRC EXCLUDE REGEX ".*/dnssd\\.c$")
+list(FILTER RPIPLAY_SRC EXCLUDE REGEX ".*/(dnssd|raop_rtp_mirror)\\.c$")
+list(APPEND RPIPLAY_SRC ${RAOP_RTP_MIRROR_PATCHED})
 file(GLOB PLAYFAIR_SRC
     ${RPIPLAY_LIB}/playfair/*.c
     ${RPIPLAY_LIB}/playfair/*.cpp
