@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <android/log.h>
 
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -25,11 +26,26 @@ namespace {
 /* AirPlay compression type (ct) reported by audio_get_format and in each audio packet. */
 constexpr unsigned char kAudioCtAacEld = 8;
 
+constexpr double kPlaybackNotStarted = -1;
+constexpr double kPlaybackFinished = 0;
+
 std::mutex g_server_mutex;
 raop_t *g_raop = nullptr;
 dnssd_t *g_dnssd = nullptr;
 jclass g_native_class = nullptr;
 jmethodID g_on_connection_started = nullptr;
+jmethodID g_on_video_play = nullptr;
+jmethodID g_on_video_scrub = nullptr;
+jmethodID g_on_video_rate = nullptr;
+jmethodID g_on_video_stop = nullptr;
+jmethodID g_playback_info = nullptr;
+/* raop keeps a pointer to this for HLS audio/subtitle selection; it must outlive g_raop. */
+std::string g_lang_system;
+/*
+ * One sender session spans several connections (RTSP, AirPlay video, reverse, and the
+ * local player's HLS fetches), so only the first opening and last closing count.
+ */
+std::atomic<int> g_open_connections{0};
 
 JNIEnv *currentEnv() {
     JavaVM *vm = androplay::jvm();
@@ -52,18 +68,30 @@ void videoProcess(void *, raop_ntp_t *, video_decode_struct *data) {
     androplay::dispatchVideo(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000));
 }
 
-void connectionStarted(void *) {
-    LOGI("AirPlay sender connected");
+/* Calls a static void AirPlayNative method; returns false if Java is unavailable. */
+template <typename... Args>
+bool callStatic(jmethodID method, Args... args) {
     JNIEnv *env = currentEnv();
-    if (!env || !g_native_class || !g_on_connection_started) return;
-    env->CallStaticVoidMethod(g_native_class, g_on_connection_started);
+    if (!env || !g_native_class || !method) return false;
+    env->CallStaticVoidMethod(g_native_class, method, args...);
     if (env->ExceptionCheck()) {
         env->ExceptionDescribe();
         env->ExceptionClear();
     }
+    return true;
+}
+
+void connectionStarted(void *) {
+    if (g_open_connections.fetch_add(1) != 0) return;
+    LOGI("AirPlay sender connected");
+    callStatic(g_on_connection_started);
 }
 
 void connectionStopped(void *) {
+    // Never below zero: a connection opened before the last restart may close afterwards.
+    int open = g_open_connections.load();
+    while (open > 0 && !g_open_connections.compare_exchange_weak(open, open - 1)) {}
+    if (open != 1) return;
     LOGI("AirPlay sender disconnected");
     androplay::dispatchSessionEnd();
 }
@@ -73,8 +101,100 @@ void connectionReset(void *, int reason) {
     androplay::dispatchSessionEnd();
 }
 
-void videoReset(void *, reset_type_t type) {
+void onVideoStop(void *) {
+    LOGI("AirPlay video: stop");
+    callStatic(g_on_video_stop);
+}
+
+void videoReset(void *cls, reset_type_t type) {
     LOGI("AirPlay video reset (type %d)", static_cast<int>(type));
+    switch (type) {
+    case RESET_TYPE_NOHOLD:
+    case RESET_TYPE_HLS_SHUTDOWN:
+        // Same cleanup as UxPlay's own video_reset: forget the playlist and drop the
+        // local player's HLS connections.
+        onVideoStop(cls);
+        if (g_raop) {
+            raop_destroy_airplay_video(g_raop, -1);
+            if (type == RESET_TYPE_HLS_SHUTDOWN) raop_remove_hls_connections(g_raop);
+        }
+        break;
+    case RESET_TYPE_HLS_EOS:
+        onVideoStop(cls);
+        break;
+    default:
+        break;
+    }
+}
+
+void onVideoPlay(void *, const char *location, const float startPosition) {
+    LOGI("AirPlay video: play %s from %.1fs", location ? location : "(null)", startPosition);
+    JNIEnv *env = currentEnv();
+    if (!env || !location) return;
+    jstring url = env->NewStringUTF(location);
+    callStatic(g_on_video_play, url, static_cast<jfloat>(startPosition));
+    env->DeleteLocalRef(url);
+}
+
+void onVideoScrub(void *, const float position) {
+    LOGI("AirPlay video: seek to %.1fs", position);
+    callStatic(g_on_video_scrub, static_cast<jfloat>(position));
+}
+
+void onVideoRate(void *, const float rate) {
+    LOGI("AirPlay video: rate %.1f", rate);
+    callStatic(g_on_video_rate, static_cast<jfloat>(rate));
+}
+
+/*
+ * Polled by the sender (about once a second). Kotlin returns
+ * [durationSec, positionSec, rate, state, bufferEmpty, bufferFull], where state is
+ * kPlaybackNotStarted, kPlaybackActive or kPlaybackFinished.
+ */
+bool readPlaybackInfo(double values[6]) {
+    JNIEnv *env = currentEnv();
+    if (!env || !g_native_class || !g_playback_info) return false;
+    auto array = static_cast<jdoubleArray>(env->CallStaticObjectMethod(g_native_class, g_playback_info));
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        return false;
+    }
+    if (!array) return false;
+    bool ok = env->GetArrayLength(array) >= 6;
+    if (ok) env->GetDoubleArrayRegion(array, 0, 6, values);
+    env->DeleteLocalRef(array);
+    return ok;
+}
+
+void onVideoAcquirePlaybackInfo(void *, playback_info_t *info) {
+    double v[6] = {0, 0, 0, kPlaybackNotStarted, 1, 0};
+    readPlaybackInfo(v);
+    info->duration = v[0];
+    info->position = v[1];
+    info->rate = static_cast<float>(v[2]);
+    info->seek_start = 0.0;
+    info->seek_duration = v[0];
+    info->playback_buffer_empty = v[4] != 0;
+    info->playback_buffer_full = v[5] != 0;
+    info->ready_to_play = true;
+    info->playback_likely_to_keep_up = true;
+    // UxPlay's /playback-info: position -1 = "not available yet" (e.g. while the playlist
+    // is still being fetched), duration -1 = "finished", which tears the session down.
+    if (v[3] == kPlaybackNotStarted) {
+        info->position = -1.0;
+    } else if (v[3] == kPlaybackFinished) {
+        info->position = -1.0;
+        info->duration = -1.0;
+    }
+}
+
+/* The sender switched to another video; returns where to resume this one. */
+float onVideoPlaylistRemove(void *) {
+    double v[6] = {0, 0, 0, kPlaybackNotStarted, 1, 0};
+    readPlaybackInfo(v);
+    callStatic(g_on_video_rate, 0.0f);
+    return static_cast<float>(v[1]);
 }
 
 void audioGetFormat(void *, unsigned char *ct, unsigned short *spf, bool *usingScreen, bool *isMedia,
@@ -104,11 +224,6 @@ bool checkRegister(void *, const char *) { return true; /* no registration list 
 const char *passwd(void *, int *len) { *len = 0; return nullptr; /* no password */ }
 void exportDacp(void *, const char *, const char *) {}
 int videoSetCodec(void *, video_codec_t) { return 0; }
-void onVideoPlay(void *, const char *, const float) {}
-void onVideoScrub(void *, const float) {}
-void onVideoRate(void *, const float) {}
-void onVideoAcquirePlaybackInfo(void *, playback_info_t *) {}
-float onVideoPlaylistRemove(void *) { return 0.0f; }
 
 void logCallback(void *, int level, const char *message) {
     const int priority = level <= LOGGER_ERR ? ANDROID_LOG_ERROR :
@@ -155,10 +270,13 @@ void stopLocked() {
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeStart(
-    JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile) {
+    JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile,
+    jstring language) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     stopLocked();
-    if (!deviceName || !hardwareAddress || !keyFile || env->GetArrayLength(hardwareAddress) != 6) return 0;
+    if (!deviceName || !hardwareAddress || !keyFile || !language ||
+        env->GetArrayLength(hardwareAddress) != 6) return 0;
+    g_open_connections = 0;
 
     static std::once_flag ntp_once;
     std::call_once(ntp_once, ntp_global_init);
@@ -203,7 +321,7 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
     callbacks.on_video_play = onVideoPlay;
     callbacks.on_video_scrub = onVideoScrub;
     callbacks.on_video_rate = onVideoRate;
-    callbacks.on_video_stop = noop;
+    callbacks.on_video_stop = onVideoStop;
     callbacks.on_video_acquire_playback_info = onVideoAcquirePlaybackInfo;
     callbacks.on_video_playlist_remove = onVideoPlaylistRemove;
 
@@ -230,6 +348,13 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
         return 0;
     }
 
+    // AirPlay video (HLS): the YouTube app and similar in-app players.
+    raop_set_plist(g_raop, "hls", 1);
+    const char *lang = env->GetStringUTFChars(language, nullptr);
+    g_lang_system = lang ? lang : "en";
+    if (lang) env->ReleaseStringUTFChars(language, lang);
+    raop_set_lang(g_raop, nullptr, nullptr, g_lang_system.c_str());
+
     const char *name = env->GetStringUTFChars(deviceName, nullptr);
     if (!name) {
         stopLocked();
@@ -243,6 +368,8 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
         stopLocked();
         return 0;
     }
+    dnssd_set_airplay_features(g_dnssd, 0, 1);  // Video
+    dnssd_set_airplay_features(g_dnssd, 4, 1);  // VideoHTTPLiveStreams
 
     // 0 = let the system pick free ports.
     unsigned short tcp[3] = {0, 0, 0};
@@ -313,6 +440,13 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *) {
     if (!local) return JNI_ERR;
     g_native_class = reinterpret_cast<jclass>(env->NewGlobalRef(local));
     g_on_connection_started = env->GetStaticMethodID(local, "onConnectionStarted", "()V");
+    g_on_video_play = env->GetStaticMethodID(local, "onVideoPlay", "(Ljava/lang/String;F)V");
+    g_on_video_scrub = env->GetStaticMethodID(local, "onVideoScrub", "(F)V");
+    g_on_video_rate = env->GetStaticMethodID(local, "onVideoRate", "(F)V");
+    g_on_video_stop = env->GetStaticMethodID(local, "onVideoStop", "()V");
+    g_playback_info = env->GetStaticMethodID(local, "playbackInfo", "()[D");
+    if (!g_on_connection_started || !g_on_video_play || !g_on_video_scrub || !g_on_video_rate ||
+        !g_on_video_stop || !g_playback_info) return JNI_ERR;
     env->DeleteLocalRef(local);
     return JNI_VERSION_1_6;
 }

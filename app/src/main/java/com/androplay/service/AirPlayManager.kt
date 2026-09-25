@@ -3,6 +3,8 @@ package com.androplay.service
 import android.content.Context
 import android.util.Log
 import android.view.Surface
+import androidx.media3.exoplayer.ExoPlayer
+import com.androplay.protocol.VideoPlaybackListener
 
 class AirPlayManager private constructor(context: Context) {
 
@@ -27,11 +29,22 @@ class AirPlayManager private constructor(context: Context) {
         onConnectionStarted = ::onNativeConnectionStarted,
         onVideoData = { data, pts -> onNativeVideoData(data, pts, false) },
         onAudioData = { data, _ -> audioRenderer.render(data) },
+        videoPlayback = object : VideoPlaybackListener {
+            override fun onPlay(url: String, startPositionSec: Float) = onVideoPlay(url, startPositionSec)
+            override fun onSeek(positionSec: Float) = hlsPlayer.seek(positionSec)
+            override fun onRate(rate: Float) = hlsPlayer.setRate(rate)
+            override fun onStop() = onVideoStopped()
+            override fun playbackInfo(): DoubleArray = hlsPlayer.playbackInfo()
+        },
         onSessionEnd = ::onNativeStreamStopped
     )
     private val discoveryAdvertiser = AirPlayDiscoveryAdvertiser(context)
     private val videoRenderer = VideoRenderer(onFrameSizeChanged = ::onFrameSizeChanged)
     private val audioRenderer = AudioRenderer()
+    private val hlsPlayer = HlsPlayer(context, onFinished = ::onVideoStopped)
+
+    /** The AirPlay video player while one is active. Main thread only. */
+    val videoPlayer: ExoPlayer? get() = hlsPlayer.player
     private val settingsStore = ReceiverSettingsStore(context)
 
     private val _stateCallbacks = mutableListOf<(AirPlayConnectionState, StreamInfo, String?) -> Unit>()
@@ -87,6 +100,7 @@ class AirPlayManager private constructor(context: Context) {
         discoveryAdvertiser.stop()
         videoRenderer.stop()
         audioRenderer.stop()
+        hlsPlayer.stop()
         currentStreamInfo = StreamInfo()
         currentError = null
         currentState = AirPlayConnectionState.Idle
@@ -118,6 +132,7 @@ class AirPlayManager private constructor(context: Context) {
     fun onNativeStreamStopped() {
         videoRenderer.stop()
         audioRenderer.stop()
+        hlsPlayer.stop()
         currentStreamInfo = StreamInfo()
         currentState = AirPlayConnectionState.Discovering
     }
@@ -131,12 +146,32 @@ class AirPlayManager private constructor(context: Context) {
         discoveryAdvertiser.stop()
         videoRenderer.stop()
         audioRenderer.stop()
+        hlsPlayer.stop()
         currentError = error
         currentState = AirPlayConnectionState.Error
     }
 
     fun setVideoSurface(surface: Surface?) {
         videoRenderer.setSurface(surface)
+    }
+
+    private fun onVideoPlay(url: String, startPositionSec: Float) {
+        // AirPlay video replaces any mirroring session on this receiver.
+        videoRenderer.stop()
+        audioRenderer.stop()
+        hlsPlayer.play(url, startPositionSec) {
+            currentStreamInfo = StreamInfo(isVideoPlayback = true)
+            currentError = null
+            currentState = AirPlayConnectionState.Streaming
+        }
+    }
+
+    private fun onVideoStopped() {
+        hlsPlayer.stop()
+        if (currentStreamInfo.isVideoPlayback) {
+            currentStreamInfo = StreamInfo()
+            currentState = AirPlayConnectionState.Discovering
+        }
     }
 
     private fun onFrameSizeChanged(width: Int, height: Int) {

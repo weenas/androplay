@@ -3,6 +3,8 @@ package com.androplay.ui.screen
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -23,10 +25,16 @@ import com.androplay.viewmodel.AirPlayViewModel
 fun MirrorScreen(viewModel: AirPlayViewModel) {
     val state by viewModel.state.collectAsState()
 
-    // Mirroring owns the whole screen: no app bar, no padding, just the picture.
-    if (state.connectionState == AirPlayConnectionState.Streaming && state.streamInfo.isMirroring) {
-        MirroringVideo(viewModel = viewModel, streamInfo = state.streamInfo)
-        return
+    // Mirroring and AirPlay video own the whole screen: no app bar, no padding, just the picture.
+    if (state.connectionState == AirPlayConnectionState.Streaming) {
+        if (state.streamInfo.isVideoPlayback) {
+            VideoPlayback(viewModel = viewModel)
+            return
+        }
+        if (state.streamInfo.isMirroring) {
+            MirroringVideo(viewModel = viewModel, streamInfo = state.streamInfo)
+            return
+        }
     }
 
     Scaffold(
@@ -201,6 +209,26 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
             Text("Stop", fontSize = 20.sp)
         }
     }
+}
+
+/** Full-screen AirPlay video. The sender is the remote control, so no on-screen controls. */
+@Composable
+fun VideoPlayback(viewModel: AirPlayViewModel) {
+    AndroidView(
+        factory = { context ->
+            PlayerView(context).apply {
+                useController = false
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                setShutterBackgroundColor(android.graphics.Color.BLACK)
+                keepScreenOn = true
+            }
+        },
+        update = { it.player = viewModel.videoPlayer },
+        onRelease = { it.player = null },
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    )
 }
 
 /** Full-screen mirrored picture, letterboxed to the sender's aspect ratio. */

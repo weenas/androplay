@@ -62,6 +62,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -86,6 +87,7 @@ dependencies {
     implementation("androidx.tv:tv-foundation:1.0.0")
 
     implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.2.1")
     implementation("androidx.media3:media3-ui:1.2.1")
     implementation("androidx.media3:media3-session:1.2.1")
 
