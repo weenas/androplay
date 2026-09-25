@@ -11,6 +11,8 @@ class NativeBridge(
     private val onConnectionStarted: () -> Unit,
     private val onVideoData: (ByteArray, Long) -> Unit,
     private val onAudioData: (ByteArray, Long) -> Unit,
+    private val onPcmData: (ByteArray, Long) -> Unit,
+    private val onAudioFlush: () -> Unit,
     private val videoPlayback: VideoPlaybackListener,
     private val onSessionEnd: () -> Unit
 ) {
@@ -53,6 +55,14 @@ class NativeBridge(
         AirPlayNative.setAudioSink(object : AudioSink {
             override fun onAudioData(data: ByteArray, presentationTimeUs: Long) {
                 this@NativeBridge.onAudioData(data, presentationTimeUs)
+            }
+
+            override fun onPcmData(data: ByteArray, presentationTimeUs: Long) {
+                this@NativeBridge.onPcmData(data, presentationTimeUs)
+            }
+
+            override fun onAudioFlush() {
+                this@NativeBridge.onAudioFlush.invoke()
             }
         })
     }

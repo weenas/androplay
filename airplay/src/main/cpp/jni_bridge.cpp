@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "alac_decoder.h"
 #include "audio_sink.h"
 #include "video_sink.h"
 
@@ -24,6 +25,7 @@ extern "C" {
 
 namespace {
 /* AirPlay compression type (ct) reported by audio_get_format and in each audio packet. */
+constexpr unsigned char kAudioCtAlac = 2;
 constexpr unsigned char kAudioCtAacEld = 8;
 
 constexpr double kPlaybackNotStarted = -1;
@@ -58,9 +60,25 @@ JNIEnv *currentEnv() {
 
 void audioProcess(void *, raop_ntp_t *, audio_decode_struct *data) {
     if (!data) return;
-    // Only AAC-ELD (screen mirroring) has a decoder on the Kotlin side so far.
-    if (data->ct != kAudioCtAacEld) return;
-    androplay::dispatchAudio(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000));
+    const auto ptsUs = static_cast<int64_t>(data->ntp_time_remote / 1000);
+    if (data->ct == kAudioCtAacEld) {
+        // Screen mirroring: decoded by MediaCodec on the Kotlin side.
+        androplay::dispatchAudio(data->data, data->data_len, ptsUs);
+    } else if (data->ct == kAudioCtAlac) {
+        // Audio streaming (music apps): Android has no ALAC codec, so decode here.
+        // audio_process always runs on the session's single RTP thread.
+        static androplay::AlacDecoder decoder;
+        static std::vector<int16_t> pcm;
+        if (decoder.decode(data->data, data->data_len, pcm)) {
+            androplay::dispatchPcm(pcm.data(), static_cast<int>(pcm.size()), ptsUs);
+        } else {
+            LOGE("Dropped a corrupt ALAC frame (%d bytes)", data->data_len);
+        }
+    }
+}
+
+void audioFlush(void *) {
+    androplay::dispatchAudioFlush();
 }
 
 void videoProcess(void *, raop_ntp_t *, video_decode_struct *data) {
@@ -201,7 +219,9 @@ void audioGetFormat(void *, unsigned char *ct, unsigned short *spf, bool *usingS
                     uint64_t *audioFormat) {
     LOGI("Audio format ct=%u spf=%u usingScreen=%d isMedia=%d audioFormat=0x%llx", *ct, *spf,
          *usingScreen, *isMedia, static_cast<unsigned long long>(*audioFormat));
-    if (*ct != kAudioCtAacEld) LOGI("Audio format ct=%u has no decoder yet; audio will be silent", *ct);
+    if (*ct != kAudioCtAacEld && *ct != kAudioCtAlac) {
+        LOGI("Audio format ct=%u has no decoder yet; audio will be silent", *ct);
+    }
 }
 
 /*
@@ -299,7 +319,7 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
     callbacks.video_reset = videoReset;
     callbacks.conn_init = connectionStarted;
     callbacks.conn_destroy = connectionStopped;
-    callbacks.audio_flush = noop;
+    callbacks.audio_flush = audioFlush;
     callbacks.video_flush = noop;
     callbacks.audio_set_client_volume = audioSetClientVolume;
     callbacks.audio_set_volume = audioSetVolume;

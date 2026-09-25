@@ -6,7 +6,12 @@ interface VideoSink {
 }
 
 interface AudioSink {
+    /** A compressed AAC-ELD frame (screen mirroring). */
     fun onAudioData(data: ByteArray, presentationTimeUs: Long)
+    /** Decoded interleaved S16 stereo PCM at 44.1 kHz (ALAC audio streaming). */
+    fun onPcmData(data: ByteArray, presentationTimeUs: Long)
+    /** The sender flushed (pause, seek, next track): drop audio not yet played. */
+    fun onAudioFlush()
 }
 
 /**

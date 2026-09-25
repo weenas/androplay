@@ -11,13 +11,16 @@ import android.os.HandlerThread
 import android.util.Log
 import java.nio.ByteBuffer
 import java.util.ArrayDeque
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Decodes the AAC-ELD audio RPiPlay delivers (raw frames, 44.1 kHz stereo, 480 samples each)
- * and plays it through an [AudioTrack].
+ * Plays AirPlay audio through an [AudioTrack]:
+ * - [render]: AAC-ELD frames from screen mirroring (44.1 kHz stereo, 480 samples each),
+ *   decoded with MediaCodec, created lazily on the first frame;
+ * - [renderPcm]: PCM the native layer already decoded (ALAC from audio streaming).
  *
- * Mirroring is live, so frames are played as they arrive rather than scheduled by timestamp.
- * The decoder is created lazily on the first frame and torn down when the session ends.
+ * Audio is played as it arrives rather than scheduled by timestamp. Both paths write from
+ * the same thread, so they share one track, torn down when the session ends.
  */
 class AudioRenderer {
     private val lock = Any()
@@ -28,6 +31,10 @@ class AudioRenderer {
     private val pendingFrames = ArrayDeque<ByteArray>()
     private val freeInputs = ArrayDeque<Int>()
     private var droppedFrames = 0L
+
+    /** Bumped by [flush] and [stop], so PCM queued before them is skipped. */
+    private val generation = AtomicInteger()
+    private val pendingPcm = AtomicInteger()
 
     fun render(frame: ByteArray) {
         if (frame.isEmpty()) return
@@ -45,7 +52,41 @@ class AudioRenderer {
         }
     }
 
+    /** Plays interleaved S16 stereo PCM at 44.1 kHz. */
+    fun renderPcm(pcm: ByteArray) {
+        if (pcm.isEmpty()) return
+        if (pendingPcm.get() >= MAX_PENDING_PCM) {
+            synchronized(lock) { droppedFrames++ }
+            return
+        }
+        val queuedIn = generation.get()
+        pendingPcm.incrementAndGet()
+        handler.post {
+            pendingPcm.decrementAndGet()
+            if (queuedIn != generation.get()) return@post
+            val output = synchronized(lock) { track ?: createTrack(SAMPLE_RATE, CHANNELS).also { track = it } }
+            // Blocking write paces this thread to playback, as in the AAC path.
+            output.write(pcm, 0, pcm.size)
+        }
+    }
+
+    /** Drops audio not yet played, e.g. when the sender pauses, seeks or skips a track. */
+    fun flush() {
+        generation.incrementAndGet()
+        synchronized(lock) { pendingFrames.clear() }
+        handler.post {
+            synchronized(lock) {
+                track?.let {
+                    it.pause()
+                    it.flush()
+                    it.play()
+                }
+            }
+        }
+    }
+
     fun stop() {
+        generation.incrementAndGet()
         synchronized(lock) {
             releaseLocked()
             if (droppedFrames > 0) Log.i(TAG, "Session ended, $droppedFrames audio frames dropped")
@@ -211,5 +252,10 @@ class AudioRenderer {
         val ELD_AUDIO_SPECIFIC_CONFIG = byteArrayOf(0xF8.toByte(), 0xE8.toByte(), 0x50, 0x00)
         /** About half a second of 480-sample frames. */
         const val MAX_PENDING_FRAMES = 48
+        /**
+         * About three seconds of 352-sample frames: senders stream music about two seconds
+         * ahead of playback, and that initial burst must not be dropped.
+         */
+        const val MAX_PENDING_PCM = 375
     }
 }
