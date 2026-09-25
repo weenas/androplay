@@ -68,6 +68,9 @@ class AirPlayManager private constructor(context: Context) {
     private val discoveryAdvertiser = AirPlayDiscoveryAdvertiser(context)
     private val videoRenderer = VideoRenderer(onFrameSizeChanged = ::onFrameSizeChanged)
     private val audioRenderer = AudioRenderer()
+    private val displayManager = context.getSystemService(android.hardware.display.DisplayManager::class.java)
+    private val displayMode
+        get() = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY).mode
     private val hlsPlayer = HlsPlayer(context, onFinished = ::onVideoStopped)
     @Volatile private var nowPlaying = NowPlaying()
 
@@ -97,7 +100,13 @@ class AirPlayManager private constructor(context: Context) {
     fun start(settings: ReceiverSettings = settingsStore.load()): Boolean {
         Log.d(TAG, "Starting AirPlay server: ${settings.deviceName}")
         currentError = null
-        val protocolPort = nativeBridge.start(settings.deviceName, discoveryAdvertiser.hardwareAddress())
+        val protocolPort = nativeBridge.start(
+            settings.deviceName,
+            discoveryAdvertiser.hardwareAddress(),
+            settings.displaySize(displayMode.physicalWidth, displayMode.physicalHeight),
+            settings.maxFps(),
+            settings.accessPassword()
+        )
         if (!discoveryAdvertiser.start(
                 settings.deviceName,
                 protocolPort.takeIf { it > 0 },
@@ -120,6 +129,14 @@ class AirPlayManager private constructor(context: Context) {
         }
         currentState = AirPlayConnectionState.Registering
         return true
+    }
+
+    /** Applies changed settings to a running receiver; senders reconnect to the new one. */
+    fun restartIfRunning(settings: ReceiverSettings) {
+        if (currentState == AirPlayConnectionState.Idle || currentState == AirPlayConnectionState.Error) return
+        Log.d(TAG, "Restarting AirPlay server to apply settings")
+        stop()
+        start(settings)
     }
 
     fun stop() {

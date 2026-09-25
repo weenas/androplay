@@ -8,7 +8,7 @@
  * in GET /info and handed to Kotlin, so what senders discover always matches the
  * handshake (in particular the per-device "pk").
  *
- * Record contents mirror lib/dns_sd/dns_sd.c (pin/password modes are not used).
+ * Record contents mirror lib/dns_sd/dns_sd.c, including the pin/password access modes.
  */
 #include "dnssd.h"
 #include "dnssdint.h"
@@ -75,8 +75,22 @@ int dnssd_register_raop(dnssd_t *dnssd_public, unsigned short port) {
     TXT(buf, len, "am", GLOBAL_MODEL);
     TXT(buf, len, "md", RAOP_MD);
     TXT(buf, len, "rhd", RAOP_RHD);
-    TXT(buf, len, "pw", "false");
-    TXT(buf, len, "sf", RAOP_SF);
+    /* Status flags: 0x08 = pin required, 0x80 = password required (airplay-spec status_flags). */
+    switch (dnssd_public->pin_pw) {
+    case 1:
+        TXT(buf, len, "pw", "true");
+        TXT(buf, len, "sf", "0x8c");
+        break;
+    case 2:
+    case 3:
+        TXT(buf, len, "pw", "true");
+        TXT(buf, len, "sf", "0x84");
+        break;
+    default:
+        TXT(buf, len, "pw", "false");
+        TXT(buf, len, "sf", RAOP_SF);
+        break;
+    }
     TXT(buf, len, "sr", RAOP_SR);
     TXT(buf, len, "ss", RAOP_SS);
     TXT(buf, len, "sv", RAOP_SV);
@@ -103,7 +117,7 @@ int dnssd_register_airplay(dnssd_t *dnssd_public, unsigned short port) {
     *len = 0;
     TXT(buf, len, "deviceid", device_id);
     TXT(buf, len, "features", features);
-    TXT(buf, len, "pw", "false");
+    TXT(buf, len, "pw", dnssd_public->pin_pw ? "true" : "false");
     TXT(buf, len, "flags", "0x4");
     TXT(buf, len, "model", GLOBAL_MODEL);
     TXT(buf, len, "pk", dnssd_public->pk);

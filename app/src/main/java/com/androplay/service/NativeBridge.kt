@@ -85,11 +85,20 @@ class NativeBridge(
         })
     }
 
-    fun start(deviceName: String, hardwareAddress: ByteArray): Int {
+    fun start(
+        deviceName: String,
+        hardwareAddress: ByteArray,
+        displaySize: Pair<Int, Int>,
+        maxFps: Int,
+        password: String
+    ): Int {
         val key = keyFile ?: return 0
         if (!isAvailable) return 0
         return try {
-            AirPlayNative.start(deviceName, hardwareAddress, key, language)
+            AirPlayNative.start(
+                deviceName, hardwareAddress, key, language,
+                displaySize.first, displaySize.second, maxFps, password
+            )
         } catch (e: UnsatisfiedLinkError) {
             Log.e(TAG, "Native start method is unavailable", e)
             0

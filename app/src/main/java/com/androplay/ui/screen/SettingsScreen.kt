@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.androplay.service.ReceiverSettings
 import com.androplay.viewmodel.AirPlayViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +37,7 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
         ) {
             item {
                 Text(
-                    "Settings are saved locally. Streaming options and PIN will become active when the AirPlay engine is integrated.",
+                    "Changes apply right away; a running receiver restarts, so connected devices need to reconnect.",
                     color = Color.Gray
                 )
                 Spacer(modifier = Modifier.height(16.dp))
@@ -53,20 +54,14 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 Text("Display", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             item { Spacer(modifier = Modifier.height(8.dp)) }
-            item { ChoiceSetting("Resolution", settings.resolution, listOf("Auto", "1080p", "1440p", "4K")) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
-            item { ChoiceSetting("Frame Rate", settings.frameRate, listOf("Auto", "30 FPS", "60 FPS")) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item {
-                Text("Audio", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-            item { ChoiceSetting("Audio Latency", settings.audioLatency, listOf("100 ms", "250 ms", "500 ms")) { viewModel.updateSettings { current -> current.copy(audioLatency = it) } } }
+            item { ChoiceSetting("Mirroring Resolution", settings.resolution, ReceiverSettings.RESOLUTIONS) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
+            item { ChoiceSetting("Mirroring Frame Rate", settings.frameRate, ReceiverSettings.FRAME_RATES) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
             item { Spacer(modifier = Modifier.height(16.dp)) }
             item {
                 Text("Security", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             item { Spacer(modifier = Modifier.height(8.dp)) }
-            item { DeviceNameSetting(if (settings.pin.isBlank()) "PIN (None)" else "PIN", settings.pin, isPassword = true) { pin -> viewModel.updateSettings { it.copy(pin = pin) } } }
+            item { PinSetting(settings.pin) { pin -> viewModel.updateSettings { it.copy(pin = pin) } } }
         }
     }
 }
@@ -90,6 +85,35 @@ fun DeviceNameSetting(label: String = "Device Name", value: String, isPassword: 
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = if (isPassword) androidx.compose.ui.text.input.KeyboardType.NumberPassword else androidx.compose.ui.text.input.KeyboardType.Text),
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = { TextButton(onClick = { onSaved(editing) }) { Text("Save") } })
+}
+
+/**
+ * The password senders must enter. Blank turns access control off; otherwise it needs at
+ * least [ReceiverSettings.MIN_PIN_LENGTH] digits.
+ */
+@Composable
+fun PinSetting(value: String, onSaved: (String) -> Unit) {
+    var editing by remember(value) { mutableStateOf(value) }
+    val invalid = editing.isNotEmpty() && !ReceiverSettings.isValidPin(editing)
+    OutlinedTextField(
+        value = editing,
+        onValueChange = { editing = it.filter(Char::isDigit) },
+        label = { Text(if (value.isBlank()) "Password (off)" else "Password (on)") },
+        supportingText = {
+            Text(
+                if (invalid) "Use at least ${ReceiverSettings.MIN_PIN_LENGTH} digits, or leave empty to turn it off."
+                else "Devices must enter this to AirPlay to the TV. Leave empty to allow anyone on the network."
+            )
+        },
+        isError = invalid,
+        singleLine = true,
+        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+        ),
+        modifier = Modifier.fillMaxWidth(),
+        trailingIcon = { TextButton(onClick = { onSaved(editing) }, enabled = !invalid) { Text("Save") } }
+    )
 }
 
 @Composable

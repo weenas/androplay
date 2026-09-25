@@ -43,6 +43,8 @@ jmethodID g_on_video_stop = nullptr;
 jmethodID g_playback_info = nullptr;
 /* raop keeps a pointer to this for HLS audio/subtitle selection; it must outlive g_raop. */
 std::string g_lang_system;
+/* Client-access password senders must enter; empty = open access. Read on protocol threads. */
+std::string g_password;
 /*
  * One sender session spans several connections (RTSP, AirPlay video, reverse, and the
  * local player's HLS fetches), so only the first opening and last closing count.
@@ -262,7 +264,15 @@ void reportClientRequest(void *, char *, char *, char *, bool *admit) { *admit =
 void displayPin(void *, char *) {}
 void registerClient(void *, const char *, const char *, const char *) {}
 bool checkRegister(void *, const char *) { return true; /* no registration list is kept */ }
-const char *passwd(void *, int *len) { *len = 0; return nullptr; /* no password */ }
+/* Password mode (UxPlay's pin_pw = 2): every sender enters the same password. */
+const char *passwd(void *, int *len) {
+    if (g_password.empty()) {
+        *len = 0;  // no access control
+        return nullptr;
+    }
+    *len = static_cast<int>(g_password.size());
+    return g_password.c_str();
+}
 void exportDacp(void *, const char *, const char *) {}
 int videoSetCodec(void *, video_codec_t) { return 0; }
 
@@ -312,11 +322,14 @@ void stopLocked() {
 extern "C" JNIEXPORT jint JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeStart(
     JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile,
-    jstring language) {
+    jstring language, jint displayWidth, jint displayHeight, jint maxFps, jstring password) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     stopLocked();
-    if (!deviceName || !hardwareAddress || !keyFile || !language ||
+    if (!deviceName || !hardwareAddress || !keyFile || !language || !password ||
         env->GetArrayLength(hardwareAddress) != 6) return 0;
+    const char *pw = env->GetStringUTFChars(password, nullptr);
+    g_password = pw ? pw : "";
+    if (pw) env->ReleaseStringUTFChars(password, pw);
     g_open_connections = 0;
 
     static std::once_flag ntp_once;
@@ -391,6 +404,12 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
 
     // AirPlay video (HLS): the YouTube app and similar in-app players.
     raop_set_plist(g_raop, "hls", 1);
+    // The display reported in /info; senders size and pace mirroring to it. UxPlay's default
+    // maxFPS of 30 suits a Raspberry Pi; TVs decode in hardware.
+    raop_set_plist(g_raop, "width", displayWidth);
+    raop_set_plist(g_raop, "height", displayHeight);
+    raop_set_plist(g_raop, "refreshRate", maxFps);
+    raop_set_plist(g_raop, "maxFPS", maxFps);
     const char *lang = env->GetStringUTFChars(language, nullptr);
     g_lang_system = lang ? lang : "en";
     if (lang) env->ReleaseStringUTFChars(language, lang);
@@ -402,7 +421,8 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
         return 0;
     }
     int dnsError = 0;
-    g_dnssd = dnssd_init(name, static_cast<int>(strlen(name)), address, 6, 0, &dnsError);
+    const unsigned char pinPw = g_password.empty() ? 0 : 2;  // 2 = password (advertised as pw=true)
+    g_dnssd = dnssd_init(name, static_cast<int>(strlen(name)), address, 6, pinPw, &dnsError);
     env->ReleaseStringUTFChars(deviceName, name);
     if (!g_dnssd) {
         LOGE("dnssd_init failed: %d", dnsError);
@@ -411,6 +431,8 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
     }
     dnssd_set_airplay_features(g_dnssd, 0, 1);  // Video
     dnssd_set_airplay_features(g_dnssd, 4, 1);  // VideoHTTPLiveStreams
+    // UxPlay turns "supports legacy pairing" off in password mode, so senders ask for it.
+    if (!g_password.empty()) dnssd_set_airplay_features(g_dnssd, 27, 0);
 
     // 0 = let the system pick free ports.
     unsigned short tcp[3] = {0, 0, 0};
