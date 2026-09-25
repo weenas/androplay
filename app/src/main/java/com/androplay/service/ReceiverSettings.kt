@@ -7,7 +7,9 @@ data class ReceiverSettings(
     val resolution: String = RESOLUTION_AUTO,
     val frameRate: String = FRAME_RATE_AUTO,
     /** Password senders must enter to connect; blank = anyone on the network can. */
-    val pin: String = ""
+    val pin: String = "",
+    /** Start the receiver when the TV boots, so it is always ready like an Apple TV. */
+    val startOnBoot: Boolean = true
 ) {
     /**
      * The display size advertised to senders, which they size mirroring to. "Auto" is the
@@ -57,7 +59,8 @@ class ReceiverSettingsStore(context: Context) {
             ?.takeIf { it in ReceiverSettings.RESOLUTIONS } ?: ReceiverSettings.RESOLUTION_AUTO,
         frameRate = preferences.getString("frame_rate", null)
             ?.takeIf { it in ReceiverSettings.FRAME_RATES } ?: ReceiverSettings.FRAME_RATE_AUTO,
-        pin = preferences.getString("pin", "").orEmpty()
+        pin = preferences.getString("pin", "").orEmpty(),
+        startOnBoot = preferences.getBoolean("start_on_boot", true)
     )
 
     fun save(settings: ReceiverSettings) {
@@ -66,6 +69,7 @@ class ReceiverSettingsStore(context: Context) {
             .putString("resolution", settings.resolution)
             .putString("frame_rate", settings.frameRate)
             .putString("pin", settings.pin)
+            .putBoolean("start_on_boot", settings.startOnBoot)
             .remove("audio_latency")
             .apply()
     }

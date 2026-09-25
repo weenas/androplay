@@ -65,11 +65,15 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateSettings(transform: (ReceiverSettings) -> ReceiverSettings) {
-        val updated = transform(_settings.value)
-        if (updated == _settings.value) return
+        val previous = _settings.value
+        val updated = transform(previous)
+        if (updated == previous) return
         _settings.value = updated
         settingsStore.save(updated)
-        manager.restartIfRunning(updated)
+        // Only protocol settings need the receiver restarted; start-on-boot is read at boot.
+        if (updated.copy(startOnBoot = false) != previous.copy(startOnBoot = false)) {
+            manager.restartIfRunning(updated)
+        }
     }
 
     fun navigateToSettings() {
