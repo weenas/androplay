@@ -21,6 +21,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.delay
+import androidx.media3.common.Player
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.background
@@ -338,27 +339,75 @@ private fun formatTime(seconds: Double): String {
     return "%d:%02d".format(total / 60, total % 60)
 }
 
-/** Full-screen AirPlay video. The sender is the remote control, so no on-screen controls. */
+/**
+ * Full-screen AirPlay video. The phone stays the main remote; the TV remote can also pause
+ * (OK / play-pause) and skip 10 s (left/right, rewind/fast-forward).
+ */
 @Composable
 fun VideoPlayback(viewModel: AirPlayViewModel) {
-    AndroidView(
-        factory = { context ->
-            PlayerView(context).apply {
-                useController = false
-                // Spinner while loading or rebuffering, so a slow start isn't a black screen.
-                setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                setShutterBackgroundColor(android.graphics.Color.BLACK)
-                keepScreenOn = true
+    val player = viewModel.videoPlayer
+    var paused by remember(player) { mutableStateOf(player?.playWhenReady == false) }
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                paused = !playWhenReady
             }
-        },
-        update = { it.player = viewModel.videoPlayer },
-        onRelease = { it.player = null },
+        }
+        player?.addListener(listener)
+        onDispose { player?.removeListener(listener) }
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-    )
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                when (event.key) {
+                    Key.DirectionCenter, Key.Enter, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause ->
+                        viewModel.toggleVideoPause()
+                    Key.DirectionLeft, Key.MediaRewind -> viewModel.seekVideoBy(-SEEK_STEP_SEC)
+                    Key.DirectionRight, Key.MediaFastForward -> viewModel.seekVideoBy(SEEK_STEP_SEC)
+                    else -> return@onKeyEvent false
+                }
+                true
+            }
+            .initialFocus()
+            .focusable(),
+        contentAlignment = Alignment.Center
+    ) {
+        AndroidView(
+            factory = { context ->
+                PlayerView(context).apply {
+                    useController = false
+                    // Spinner while loading or rebuffering, so a slow start isn't a black screen.
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
+                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    setShutterBackgroundColor(android.graphics.Color.BLACK)
+                    keepScreenOn = true
+                    // Keys are handled by the Compose container above.
+                    isFocusable = false
+                }
+            },
+            update = { it.player = player },
+            onRelease = { it.player = null },
+            modifier = Modifier.fillMaxSize()
+        )
+        if (paused) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(60.dp))
+                    .background(Color(0x99000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("❚❚", fontSize = 44.sp, color = Color.White)
+            }
+        }
+    }
 }
+
+private const val SEEK_STEP_SEC = 10
 
 /** Full-screen mirrored picture, letterboxed to the sender's aspect ratio. */
 @Composable
