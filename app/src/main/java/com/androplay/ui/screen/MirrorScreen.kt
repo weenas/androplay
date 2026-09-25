@@ -60,6 +60,7 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
                     onStart = { viewModel.startServer() }
                 )
                 AirPlayConnectionState.Discovering -> DiscoveringScreen(
+                    lastError = state.errorMessage,
                     onStop = { viewModel.stopServer() }
                 )
                 AirPlayConnectionState.Registering -> RegisteringScreen(
@@ -121,13 +122,18 @@ fun IdleScreen(onStart: () -> Unit) {
 }
 
 @Composable
-fun DiscoveringScreen(onStop: () -> Unit) {
+fun DiscoveringScreen(lastError: String? = null, onStop: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text("Waiting for an AirPlay connection...", color = Color.White)
+        if (lastError != null) {
+            // Why the last AirPlay video stopped, e.g. the TV couldn't reach the video site.
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(lastError, color = Color(0xFFFFB4AB), fontSize = 18.sp)
+        }
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
     }
@@ -218,6 +224,8 @@ fun VideoPlayback(viewModel: AirPlayViewModel) {
         factory = { context ->
             PlayerView(context).apply {
                 useController = false
+                // Spinner while loading or rebuffering, so a slow start isn't a black screen.
+                setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 setShutterBackgroundColor(android.graphics.Color.BLACK)
                 keepScreenOn = true
