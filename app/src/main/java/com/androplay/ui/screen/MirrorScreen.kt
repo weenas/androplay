@@ -21,6 +21,12 @@ import com.androplay.viewmodel.AirPlayViewModel
 fun MirrorScreen(viewModel: AirPlayViewModel) {
     val state by viewModel.state.collectAsState()
 
+    // Mirroring owns the whole screen: no app bar, no padding, just the picture.
+    if (state.connectionState == AirPlayConnectionState.Streaming && state.streamInfo.isMirroring) {
+        MirroringVideo(viewModel = viewModel, streamInfo = state.streamInfo)
+        return
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -182,36 +188,51 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
         modifier = Modifier
             .fillMaxSize()
             .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        if (streamInfo.isMirroring) {
-            AndroidView(
-                factory = { context ->
-                    SurfaceView(context).apply {
-                        holder.addCallback(object : SurfaceHolder.Callback {
-                            override fun surfaceCreated(holder: SurfaceHolder) {
-                                viewModel.setVideoSurface(holder.surface)
-                            }
-
-                            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
-
-                            override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                viewModel.setVideoSurface(null)
-                            }
-                        })
-                    }
-                },
-                modifier = Modifier.weight(1f).fillMaxWidth()
-            )
-        }
         Text("Streaming", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
         Text("Source: ${streamInfo.sourceName}", color = Color.Gray)
-        Text("Resolution: ${streamInfo.videoWidth}x${streamInfo.videoHeight}", color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = { viewModel.stopServer() }) {
             Text("Stop", fontSize = 20.sp)
         }
+    }
+}
+
+/** Full-screen mirrored picture, letterboxed to the sender's aspect ratio. */
+@Composable
+fun MirroringVideo(viewModel: AirPlayViewModel, streamInfo: com.androplay.service.StreamInfo) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        val videoModifier = if (streamInfo.frameWidth > 0 && streamInfo.frameHeight > 0) {
+            Modifier.aspectRatio(streamInfo.frameWidth.toFloat() / streamInfo.frameHeight)
+        } else {
+            Modifier.fillMaxSize()
+        }
+        AndroidView(
+            factory = { context ->
+                SurfaceView(context).apply {
+                    holder.addCallback(object : SurfaceHolder.Callback {
+                        override fun surfaceCreated(holder: SurfaceHolder) {
+                            viewModel.setVideoSurface(holder.surface)
+                        }
+
+                        override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) = Unit
+
+                        override fun surfaceDestroyed(holder: SurfaceHolder) {
+                            viewModel.setVideoSurface(null)
+                        }
+                    })
+                }
+            },
+            modifier = videoModifier
+        )
     }
 }
 
