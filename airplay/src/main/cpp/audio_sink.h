@@ -5,6 +5,11 @@
 
 namespace androplay {
 void setAudioSink(JNIEnv *env, jobject sink);
+/** Compressed AAC-ELD frame (screen mirroring). */
 void dispatchAudio(const uint8_t *data, int length, int64_t ptsUs);
+/** Decoded interleaved S16 stereo PCM at 44.1 kHz (ALAC audio streaming). */
+void dispatchPcm(const int16_t *samples, int count, int64_t ptsUs);
+/** The sender flushed (pause, seek, next track): drop audio not yet played. */
+void dispatchAudioFlush();
 }
 

@@ -77,10 +77,26 @@ target_compile_options(uxplay PRIVATE
 )
 target_link_libraries(uxplay PUBLIC plist openssl::crypto log)
 
+# Apple's ALAC reference decoder (Apache-2.0): Android has no ALAC codec, and AirPlay
+# audio streaming (music apps) sends ALAC. Only the decoder half is built.
+set(ALAC_CODEC ${THIRD_PARTY_ROOT}/alac/codec)
+add_library(alac STATIC
+    ${ALAC_CODEC}/ALACDecoder.cpp
+    ${ALAC_CODEC}/ALACBitUtilities.c
+    ${ALAC_CODEC}/EndianPortable.c
+    ${ALAC_CODEC}/ag_dec.c
+    ${ALAC_CODEC}/dp_dec.c
+    ${ALAC_CODEC}/matrix_dec.c
+)
+target_include_directories(alac PUBLIC ${ALAC_CODEC})
+# EndianPortable.c only recognises x86 and Windows as little-endian; ARM is too.
+target_compile_definitions(alac PRIVATE TARGET_RT_LITTLE_ENDIAN=1)
+
 add_library(androplay_protocol SHARED
     jni_bridge.cpp
     video_sink.cpp
     audio_sink.cpp
+    alac_decoder.cpp
 )
 target_include_directories(androplay_protocol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(androplay_protocol PRIVATE uxplay log android)
+target_link_libraries(androplay_protocol PRIVATE uxplay alac log android)

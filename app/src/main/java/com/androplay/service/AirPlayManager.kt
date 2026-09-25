@@ -29,6 +29,8 @@ class AirPlayManager private constructor(context: Context) {
         onConnectionStarted = ::onNativeConnectionStarted,
         onVideoData = { data, pts -> onNativeVideoData(data, pts, false) },
         onAudioData = { data, _ -> audioRenderer.render(data) },
+        onPcmData = { data, _ -> audioRenderer.renderPcm(data) },
+        onAudioFlush = { audioRenderer.flush() },
         videoPlayback = object : VideoPlaybackListener {
             override fun onPlay(url: String, startPositionSec: Float) = onVideoPlay(url, startPositionSec)
             override fun onSeek(positionSec: Float) = hlsPlayer.seek(positionSec)
