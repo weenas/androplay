@@ -2,16 +2,18 @@
 #include <android/log.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <string>
+#include <vector>
 
 #include "audio_sink.h"
 #include "video_sink.h"
 
 extern "C" {
 #include "dnssd.h"
-#include "dnssdint.h"
-#include "global.h"
+#include "logger.h"
 #include "raop.h"
 #include "stream.h"
 }
@@ -20,6 +22,9 @@ extern "C" {
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AndroPlayProtocol", __VA_ARGS__)
 
 namespace {
+/* AirPlay compression type (ct) reported by audio_get_format and in each audio packet. */
+constexpr unsigned char kAudioCtAacEld = 8;
+
 std::mutex g_server_mutex;
 raop_t *g_raop = nullptr;
 dnssd_t *g_dnssd = nullptr;
@@ -35,14 +40,16 @@ JNIEnv *currentEnv() {
     return nullptr;
 }
 
-void audioProcess(void *, raop_ntp_t *, aac_decode_struct *data) {
+void audioProcess(void *, raop_ntp_t *, audio_decode_struct *data) {
     if (!data) return;
-    androplay::dispatchAudio(data->data, data->data_len, static_cast<int64_t>(data->pts));
+    // Only AAC-ELD (screen mirroring) has a decoder on the Kotlin side so far.
+    if (data->ct != kAudioCtAacEld) return;
+    androplay::dispatchAudio(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000));
 }
 
-void videoProcess(void *, raop_ntp_t *, h264_decode_struct *data) {
+void videoProcess(void *, raop_ntp_t *, video_decode_struct *data) {
     if (!data) return;
-    androplay::dispatchVideo(data->data, data->data_len, static_cast<int64_t>(data->pts));
+    androplay::dispatchVideo(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000));
 }
 
 void connectionStarted(void *) {
@@ -61,70 +68,71 @@ void connectionStopped(void *) {
     androplay::dispatchSessionEnd();
 }
 
+void connectionReset(void *, int reason) {
+    LOGI("AirPlay connection reset (reason %d)", reason);
+    androplay::dispatchSessionEnd();
+}
+
+void videoReset(void *, reset_type_t type) {
+    LOGI("AirPlay video reset (type %d)", static_cast<int>(type));
+}
+
+void audioGetFormat(void *, unsigned char *ct, unsigned short *spf, bool *usingScreen, bool *isMedia,
+                    uint64_t *audioFormat) {
+    LOGI("Audio format ct=%u spf=%u usingScreen=%d isMedia=%d audioFormat=0x%llx", *ct, *spf,
+         *usingScreen, *isMedia, static_cast<unsigned long long>(*audioFormat));
+    if (*ct != kAudioCtAacEld) LOGI("Audio format ct=%u has no decoder yet; audio will be silent", *ct);
+}
+
 /*
- * RPiPlay invokes these without null checks (raop.c conn_destroy, raop_rtp.c
- * control thread), so every slot must be populated even when unused.
+ * UxPlay invokes many callbacks without null checks, so every slot is populated.
+ * The ones below have no Android behaviour yet.
  */
-void audioFlush(void *) {}
-void videoFlush(void *) {}
+void noop(void *) {}
+double audioSetClientVolume(void *) { return 0.0; /* dB; 0 is full volume */ }
 void audioSetVolume(void *, float) {}
 void audioSetMetadata(void *, const void *, int) {}
 void audioSetCoverart(void *, const void *, int) {}
 void audioRemoteControlId(void *, const char *, const char *) {}
-void audioSetProgress(void *, unsigned int, unsigned int, unsigned int) {}
+void audioSetProgress(void *, uint32_t *, uint32_t *, uint32_t *) {}
+void videoReportSize(void *, float *, float *, float *, float *) {}
+void mirrorVideoRunning(void *, bool) {}
+void reportClientRequest(void *, char *, char *, char *, bool *admit) { *admit = true; }
+void displayPin(void *, char *) {}
+void registerClient(void *, const char *, const char *, const char *) {}
+bool checkRegister(void *, const char *) { return true; /* no registration list is kept */ }
+const char *passwd(void *, int *len) { *len = 0; return nullptr; /* no password */ }
+void exportDacp(void *, const char *, const char *) {}
+int videoSetCodec(void *, video_codec_t) { return 0; }
+void onVideoPlay(void *, const char *, const float) {}
+void onVideoScrub(void *, const float) {}
+void onVideoRate(void *, const float) {}
+void onVideoAcquirePlaybackInfo(void *, playback_info_t *) {}
+float onVideoPlaylistRemove(void *) { return 0.0f; }
 
 void logCallback(void *, int level, const char *message) {
-    const int priority = level <= RAOP_LOG_ERR ? ANDROID_LOG_ERROR :
-        (level <= RAOP_LOG_WARNING ? ANDROID_LOG_WARN : ANDROID_LOG_DEBUG);
-    __android_log_print(priority, "RPiPlay", "%s", message ? message : "");
+    const int priority = level <= LOGGER_ERR ? ANDROID_LOG_ERROR :
+        (level <= LOGGER_WARNING ? ANDROID_LOG_WARN :
+        (level <= LOGGER_INFO ? ANDROID_LOG_INFO : ANDROID_LOG_DEBUG));
+    __android_log_print(priority, "UxPlay", "%s", message ? message : "");
 }
 
-/*
- * TXT records must match what the protocol core reports in /info and uses during
- * the handshake, so they come straight from RPiPlay's dnssdint.h / global.h.
- * "deviceid" is added by the Kotlin advertiser from the same hardware address.
- */
-const char *const kAirPlayTxt[] = {
-    "features=" AIRPLAY_FEATURES,
-    "flags=" AIRPLAY_FLAGS,
-    "model=" GLOBAL_MODEL,
-    "pk=" AIRPLAY_PK,
-    "pi=" AIRPLAY_PI,
-    "srcvers=" AIRPLAY_SRCVERS,
-    "vv=" AIRPLAY_VV,
-};
-
-const char *const kRaopTxt[] = {
-    "ch=" RAOP_CH,
-    "cn=" RAOP_CN,
-    "da=" RAOP_DA,
-    "et=" RAOP_ET,
-    "vv=" RAOP_VV,
-    "ft=" RAOP_FT,
-    "am=" GLOBAL_MODEL,
-    "md=" RAOP_MD,
-    "rhd=" RAOP_RHD,
-    "pw=false",
-    "sr=" RAOP_SR,
-    "ss=" RAOP_SS,
-    "sv=" RAOP_SV,
-    "tp=" RAOP_TP,
-    "txtvers=" RAOP_TXTVERS,
-    "sf=" RAOP_SF,
-    "vs=" RAOP_VS,
-    "vn=" RAOP_VN,
-    "pk=" RAOP_PK,
-};
-
-template <size_t N>
-jobjectArray toStringArray(JNIEnv *env, const char *const (&values)[N]) {
+/* Splits a DNS TXT record (length-prefixed entries) into "key=value" Java strings. */
+jobjectArray txtToStringArray(JNIEnv *env, const char *txt, int length) {
+    std::vector<std::string> entries;
+    for (int offset = 0; txt && offset < length;) {
+        int entry_len = static_cast<unsigned char>(txt[offset++]);
+        if (offset + entry_len > length) break;
+        entries.emplace_back(txt + offset, entry_len);
+        offset += entry_len;
+    }
     jclass stringClass = env->FindClass("java/lang/String");
     if (!stringClass) return nullptr;
-    jobjectArray result = env->NewObjectArray(static_cast<jsize>(N), stringClass, nullptr);
+    jobjectArray result = env->NewObjectArray(static_cast<jsize>(entries.size()), stringClass, nullptr);
     env->DeleteLocalRef(stringClass);
     if (!result) return nullptr;
-    for (size_t i = 0; i < N; ++i) {
-        jstring value = env->NewStringUTF(values[i]);
+    for (size_t i = 0; i < entries.size(); ++i) {
+        jstring value = env->NewStringUTF(entries[i].c_str());
         if (!value) return nullptr;
         env->SetObjectArrayElement(result, static_cast<jsize>(i), value);
         env->DeleteLocalRef(value);
@@ -134,7 +142,7 @@ jobjectArray toStringArray(JNIEnv *env, const char *const (&values)[N]) {
 
 void stopLocked() {
     if (g_raop) {
-        raop_stop(g_raop);
+        raop_stop_httpd(g_raop);
         raop_destroy(g_raop);
         g_raop = nullptr;
     }
@@ -147,55 +155,111 @@ void stopLocked() {
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeStart(
-    JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress) {
+    JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     stopLocked();
-    if (!deviceName || !hardwareAddress || env->GetArrayLength(hardwareAddress) != 6) return 0;
+    if (!deviceName || !hardwareAddress || !keyFile || env->GetArrayLength(hardwareAddress) != 6) return 0;
 
-    const char *name = env->GetStringUTFChars(deviceName, nullptr);
-    if (!name) return 0;
+    static std::once_flag ntp_once;
+    std::call_once(ntp_once, ntp_global_init);
+
     char address[6];
     env->GetByteArrayRegion(hardwareAddress, 0, 6, reinterpret_cast<jbyte *>(address));
+    char device_id[18];
+    snprintf(device_id, sizeof(device_id), "%02x:%02x:%02x:%02x:%02x:%02x",
+             static_cast<unsigned char>(address[0]), static_cast<unsigned char>(address[1]),
+             static_cast<unsigned char>(address[2]), static_cast<unsigned char>(address[3]),
+             static_cast<unsigned char>(address[4]), static_cast<unsigned char>(address[5]));
 
     raop_callbacks_t callbacks{};
     callbacks.audio_process = audioProcess;
     callbacks.video_process = videoProcess;
+    callbacks.video_pause = noop;
+    callbacks.video_resume = noop;
+    callbacks.conn_feedback = noop;
+    callbacks.conn_reset = connectionReset;
+    callbacks.video_reset = videoReset;
     callbacks.conn_init = connectionStarted;
     callbacks.conn_destroy = connectionStopped;
-    callbacks.audio_flush = audioFlush;
-    callbacks.video_flush = videoFlush;
+    callbacks.audio_flush = noop;
+    callbacks.video_flush = noop;
+    callbacks.audio_set_client_volume = audioSetClientVolume;
     callbacks.audio_set_volume = audioSetVolume;
     callbacks.audio_set_metadata = audioSetMetadata;
     callbacks.audio_set_coverart = audioSetCoverart;
+    callbacks.audio_stop_coverart_rendering = noop;
     callbacks.audio_remote_control_id = audioRemoteControlId;
     callbacks.audio_set_progress = audioSetProgress;
+    callbacks.audio_get_format = audioGetFormat;
+    callbacks.video_report_size = videoReportSize;
+    callbacks.mirror_video_running = mirrorVideoRunning;
+    callbacks.report_client_request = reportClientRequest;
+    callbacks.display_pin = displayPin;
+    callbacks.register_client = registerClient;
+    callbacks.check_register = checkRegister;
+    callbacks.passwd = passwd;
+    callbacks.export_dacp = exportDacp;
+    callbacks.video_set_codec = videoSetCodec;
+    callbacks.on_video_play = onVideoPlay;
+    callbacks.on_video_scrub = onVideoScrub;
+    callbacks.on_video_rate = onVideoRate;
+    callbacks.on_video_stop = noop;
+    callbacks.on_video_acquire_playback_info = onVideoAcquirePlaybackInfo;
+    callbacks.on_video_playlist_remove = onVideoPlaylistRemove;
 
-    g_raop = raop_init(4, &callbacks);
+    g_raop = raop_init(&callbacks);
     if (!g_raop) {
-        env->ReleaseStringUTFChars(deviceName, name);
         LOGE("raop_init failed");
         return 0;
     }
     raop_set_log_callback(g_raop, logCallback, nullptr);
 #ifdef NDEBUG
-    raop_set_log_level(g_raop, RAOP_LOG_INFO);
+    raop_set_log_level(g_raop, LOGGER_INFO);
 #else
-    raop_set_log_level(g_raop, RAOP_LOG_DEBUG);
+    raop_set_log_level(g_raop, LOGGER_DEBUG);
 #endif
 
+    // The key file keeps the pairing identity stable across restarts.
+    const char *key_path = env->GetStringUTFChars(keyFile, nullptr);
+    int init2 = key_path ? raop_init2(g_raop, 0, device_id, key_path) : -1;
+    if (key_path) env->ReleaseStringUTFChars(keyFile, key_path);
+    if (init2 != 0) {
+        LOGE("raop_init2 failed");
+        raop_destroy(g_raop);
+        g_raop = nullptr;
+        return 0;
+    }
+
+    const char *name = env->GetStringUTFChars(deviceName, nullptr);
+    if (!name) {
+        stopLocked();
+        return 0;
+    }
     int dnsError = 0;
-    g_dnssd = dnssd_init(name, static_cast<int>(strlen(name)), address, 6, &dnsError);
+    g_dnssd = dnssd_init(name, static_cast<int>(strlen(name)), address, 6, 0, &dnsError);
     env->ReleaseStringUTFChars(deviceName, name);
     if (!g_dnssd) {
         LOGE("dnssd_init failed: %d", dnsError);
         stopLocked();
         return 0;
     }
-    raop_set_dnssd(g_raop, g_dnssd);
 
-    unsigned short port = 0;
-    if (raop_start(g_raop, &port) < 0) {
-        LOGE("raop_start failed");
+    // 0 = let the system pick free ports.
+    unsigned short tcp[3] = {0, 0, 0};
+    unsigned short udp[3] = {0, 0, 0};
+    raop_set_tcp_ports(g_raop, tcp);
+    raop_set_udp_ports(g_raop, udp);
+    unsigned short port = raop_get_port(g_raop);
+    if (raop_start_httpd(g_raop, &port) < 0) {
+        LOGE("raop_start_httpd failed");
+        stopLocked();
+        return 0;
+    }
+    raop_set_port(g_raop, port);
+    // Copies the pairing public key into the dnssd record, so it must precede building TXT.
+    raop_set_dnssd(g_raop, g_dnssd);
+    if (dnssd_register_raop(g_dnssd, port) != 0 || dnssd_register_airplay(g_dnssd, port) != 0) {
+        LOGE("Could not build DNS-SD TXT records");
         stopLocked();
         return 0;
     }
@@ -217,12 +281,18 @@ Java_com_androplay_protocol_AirPlayNative_nativeStop(JNIEnv *, jclass) {
 
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeAirPlayTxtRecord(JNIEnv *env, jclass) {
-    return toStringArray(env, kAirPlayTxt);
+    std::lock_guard<std::mutex> lock(g_server_mutex);
+    int length = 0;
+    const char *txt = g_dnssd ? dnssd_get_airplay_txt(g_dnssd, &length) : nullptr;
+    return txtToStringArray(env, txt, length);
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeRaopTxtRecord(JNIEnv *env, jclass) {
-    return toStringArray(env, kRaopTxt);
+    std::lock_guard<std::mutex> lock(g_server_mutex);
+    int length = 0;
+    const char *txt = g_dnssd ? dnssd_get_raop_txt(g_dnssd, &length) : nullptr;
+    return txtToStringArray(env, txt, length);
 }
 
 extern "C" JNIEXPORT void JNICALL

@@ -28,8 +28,11 @@ class NativeBridge(
         }
     }
 
+    private var keyFile: String? = null
+
     fun initialize(context: Context) {
         Log.d(TAG, "Initializing native bridge")
+        keyFile = java.io.File(context.noBackupFilesDir, "airplay_pairing_key.pem").absolutePath
         if (!isAvailable) return
         AirPlayNative.connectionListener = onConnectionStarted
         AirPlayNative.setVideoSink(object : VideoSink {
@@ -50,9 +53,10 @@ class NativeBridge(
     }
 
     fun start(deviceName: String, hardwareAddress: ByteArray): Int {
+        val key = keyFile ?: return 0
         if (!isAvailable) return 0
         return try {
-            AirPlayNative.start(deviceName, hardwareAddress)
+            AirPlayNative.start(deviceName, hardwareAddress, key)
         } catch (e: UnsatisfiedLinkError) {
             Log.e(TAG, "Native start method is unavailable", e)
             0
