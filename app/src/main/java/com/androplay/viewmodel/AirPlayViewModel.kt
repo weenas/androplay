@@ -75,6 +75,9 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleVideoPause() = manager.toggleVideoPause()
 
+    /** For the stats overlay; main thread. */
+    fun playbackStats() = manager.playbackStats()
+
     fun seekVideoBy(deltaSec: Int) = manager.seekVideoBy(deltaSec)
 
     /** The AirPlay video player, if one is active. Main thread only. */
@@ -90,10 +93,8 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
         if (updated == previous) return
         _settings.value = updated
         settingsStore.save(updated)
-        // Only protocol settings need the receiver restarted; start-on-boot is read at boot.
-        if (updated.copy(startOnBoot = false) != previous.copy(startOnBoot = false)) {
-            manager.restartIfRunning(updated)
-        }
+        // Only protocol settings need the receiver restarted (not start-on-boot or the overlay).
+        if (updated.needsRestartComparedTo(previous)) manager.restartIfRunning(updated)
     }
 
     fun navigateToSettings() {

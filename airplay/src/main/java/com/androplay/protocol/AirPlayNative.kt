@@ -9,8 +9,11 @@ interface VideoSink {
 interface AudioSink {
     /** A compressed AAC-ELD frame (screen mirroring). */
     fun onAudioData(data: ByteArray, presentationTimeUs: Long)
-    /** Decoded interleaved S16 stereo PCM at 44.1 kHz (ALAC audio streaming). */
-    fun onPcmData(data: ByteArray, presentationTimeUs: Long)
+    /**
+     * Decoded interleaved S16 stereo PCM at 44.1 kHz (ALAC audio streaming); [compressedBytes]
+     * is the size of the ALAC frame it was decoded from.
+     */
+    fun onPcmData(data: ByteArray, presentationTimeUs: Long, compressedBytes: Int)
     /** The sender flushed (pause, seek, next track): drop audio not yet played. */
     fun onAudioFlush()
     /** The sender's volume slider in AirPlay dB: -30 to 0, or -144 for mute. */

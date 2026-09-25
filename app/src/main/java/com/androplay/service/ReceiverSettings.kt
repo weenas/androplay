@@ -18,7 +18,9 @@ data class ReceiverSettings(
      */
     val allowTakeover: Boolean = false,
     /** Start the receiver when the TV boots, so it is always ready like an Apple TV. */
-    val startOnBoot: Boolean = true
+    val startOnBoot: Boolean = true,
+    /** Show a "stats for nerds" overlay (codec, resolution, bitrate, ...) while playing. */
+    val showStats: Boolean = false
 ) {
     /**
      * The display size advertised to senders, which they size mirroring to. "Auto" is the
@@ -40,6 +42,10 @@ data class ReceiverSettings(
                 }
             }
         }
+
+    /** Whether switching from [previous] needs a running receiver restarted (protocol settings). */
+    fun needsRestartComparedTo(previous: ReceiverSettings): Boolean =
+        copy(startOnBoot = false, showStats = false) != previous.copy(startOnBoot = false, showStats = false)
 
     /** Frames per second senders may mirror at. "Auto" is 60: TVs decode in hardware. */
     fun maxFps(): Int = if (frameRate == "30 FPS") 30 else 60
@@ -83,7 +89,8 @@ class ReceiverSettingsStore(context: Context) {
             ReceiverSettings.isValidPin(preferences.getString("pin", "").orEmpty())
         ),
         allowTakeover = preferences.getBoolean("allow_takeover", false),
-        startOnBoot = preferences.getBoolean("start_on_boot", true)
+        startOnBoot = preferences.getBoolean("start_on_boot", true),
+        showStats = preferences.getBoolean("show_stats", false)
     )
 
     fun save(settings: ReceiverSettings) {
@@ -96,6 +103,7 @@ class ReceiverSettingsStore(context: Context) {
             .putBoolean("require_password", settings.requirePassword)
             .putBoolean("allow_takeover", settings.allowTakeover)
             .putBoolean("start_on_boot", settings.startOnBoot)
+            .putBoolean("show_stats", settings.showStats)
             .remove("audio_latency")
             .apply()
     }

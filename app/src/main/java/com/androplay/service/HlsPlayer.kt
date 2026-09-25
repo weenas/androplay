@@ -8,7 +8,9 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Format
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.util.EventLogger
 import com.androplay.BuildConfig
 import com.androplay.protocol.AirPlayNative
@@ -48,6 +50,67 @@ class HlsPlayer(
         val buffering: Boolean = true
     )
 
+    // For the stats overlay (main thread).
+    private var videoDecoder: String? = null
+    private var audioDecoder: String? = null
+    private var bandwidthBps = 0L
+
+    private val statsListener = object : AnalyticsListener {
+        override fun onVideoDecoderInitialized(
+            eventTime: AnalyticsListener.EventTime, decoderName: String,
+            initializedTimestampMs: Long, initializationDurationMs: Long
+        ) {
+            videoDecoder = decoderName
+        }
+
+        override fun onAudioDecoderInitialized(
+            eventTime: AnalyticsListener.EventTime, decoderName: String,
+            initializedTimestampMs: Long, initializationDurationMs: Long
+        ) {
+            audioDecoder = decoderName
+        }
+
+        override fun onBandwidthEstimate(
+            eventTime: AnalyticsListener.EventTime, totalLoadTimeMs: Int, totalBytesLoaded: Long, bitrateEstimate: Long
+        ) {
+            bandwidthBps = bitrateEstimate
+        }
+    }
+
+    /** What is playing, for the stats overlay. Main thread only; null when idle. */
+    fun stats(): PlaybackStats? {
+        val exo = player ?: return null
+        val video = exo.videoFormat?.let { format ->
+            VideoStats(
+                codec = StatsFormat.codecName(format.codecs ?: format.sampleMimeType),
+                width = format.width,
+                height = format.height,
+                fps = format.frameRate.takeIf { it > 0 }?.toDouble(),
+                bitrateBps = format.bitrate.takeIf { it != Format.NO_VALUE }?.toLong(),
+                decoder = videoDecoder,
+                droppedFrames = exo.videoDecoderCounters?.droppedBufferCount?.toLong() ?: 0
+            )
+        }
+        val audio = exo.audioFormat?.let { format ->
+            AudioStats(
+                codec = StatsFormat.codecName(format.codecs ?: format.sampleMimeType),
+                sampleRate = format.sampleRate.takeIf { it != Format.NO_VALUE } ?: 0,
+                channels = format.channelCount.takeIf { it != Format.NO_VALUE } ?: 0,
+                bitrateBps = format.bitrate.takeIf { it != Format.NO_VALUE }?.toLong(),
+                decoder = audioDecoder
+            )
+        }
+        return PlaybackStats(
+            source = "AirPlay video",
+            video = video,
+            audio = audio,
+            extra = listOf(
+                "Network" to StatsFormat.bitrate(bandwidthBps.takeIf { it > 0 }),
+                "Buffer" to "%.1f s".format(java.util.Locale.US, exo.totalBufferedDuration / 1000.0)
+            )
+        )
+    }
+
     private val progressUpdater = object : Runnable {
         override fun run() {
             updateSnapshot()
@@ -85,6 +148,7 @@ class HlsPlayer(
         snapshot = Snapshot(positionSec = startPositionSec.toDouble(), state = AirPlayNative.PLAYBACK_ACTIVE)
         val exo = player ?: ExoPlayer.Builder(appContext).build().also {
             it.addListener(listener)
+            it.addAnalyticsListener(statsListener)
             // States, selected formats, segment loads and errors, tagged "EventLogger".
             if (BuildConfig.DEBUG) it.addAnalyticsListener(EventLogger())
             it.volume = volume
@@ -185,6 +249,9 @@ class HlsPlayer(
             it.release()
         }
         player = null
+        videoDecoder = null
+        audioDecoder = null
+        bandwidthBps = 0
         // Keep "finished" until the next play(): the sender needs one poll to see it.
         if (snapshot.state != AirPlayNative.PLAYBACK_FINISHED) snapshot = Snapshot()
     }
