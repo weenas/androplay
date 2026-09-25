@@ -38,13 +38,13 @@ void setVideoSink(JNIEnv *env, jobject sink) {
     if (!sink) return;
     g_sink = env->NewGlobalRef(sink);
     jclass cls = env->GetObjectClass(sink);
-    g_on_video = env->GetMethodID(cls, "onVideoData", "([BJ)V");
+    g_on_video = env->GetMethodID(cls, "onVideoData", "([BJZ)V");
     g_on_end = env->GetMethodID(cls, "onSessionEnd", "()V");
     env->DeleteLocalRef(cls);
     if (!g_on_video || !g_on_end) LOGE("Video sink methods were not found");
 }
 
-void dispatchVideo(const uint8_t *data, int length, int64_t ptsUs) {
+void dispatchVideo(const uint8_t *data, int length, int64_t ptsUs, bool isH265) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (!g_sink || !g_on_video || !data || length <= 0) return;
     JNIEnv *env = currentEnv();
@@ -52,7 +52,7 @@ void dispatchVideo(const uint8_t *data, int length, int64_t ptsUs) {
     jbyteArray bytes = env->NewByteArray(length);
     if (!bytes) return;
     env->SetByteArrayRegion(bytes, 0, length, reinterpret_cast<const jbyte *>(data));
-    env->CallVoidMethod(g_sink, g_on_video, bytes, static_cast<jlong>(ptsUs));
+    env->CallVoidMethod(g_sink, g_on_video, bytes, static_cast<jlong>(ptsUs), static_cast<jboolean>(isH265));
     if (env->ExceptionCheck()) {
         env->ExceptionDescribe();
         env->ExceptionClear();

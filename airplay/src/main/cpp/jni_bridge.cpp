@@ -56,6 +56,8 @@ std::string g_password;
 std::atomic<int> g_open_connections{0};
 /* The sender's last volume (AirPlay dB), reported back as the receiver's initial volume. */
 std::atomic<float> g_volume_db{0.0f};
+/* Whether H.265 mirroring was offered (feature bit 42); see nativeStart. */
+std::atomic<bool> g_h265_enabled{false};
 
 JNIEnv *currentEnv() {
     JavaVM *vm = androplay::jvm();
@@ -91,7 +93,8 @@ void audioFlush(void *) {
 
 void videoProcess(void *, raop_ntp_t *, video_decode_struct *data) {
     if (!data) return;
-    androplay::dispatchVideo(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000));
+    androplay::dispatchVideo(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000),
+                             data->is_h265);
 }
 
 /* Calls a static void AirPlayNative method; returns false if Java is unavailable. */
@@ -329,7 +332,20 @@ void exportDacp(void *, const char *active_remote, const char *dacp_id) {
     env->DeleteLocalRef(id);
     env->DeleteLocalRef(remote);
 }
-int videoSetCodec(void *, video_codec_t) { return 0; }
+/*
+ * Called once per mirroring session with the codec the sender picked. A negative return
+ * makes UxPlay drop the connection: better than a black screen if a sender sends H.265 when
+ * it was not offered.
+ */
+int videoSetCodec(void *, video_codec_t codec) {
+    const bool h265 = codec == VIDEO_CODEC_H265;
+    LOGI("Mirroring codec: %s", h265 ? "H.265" : "H.264");
+    if (h265 && !g_h265_enabled) {
+        LOGE("Sender chose H.265, which this receiver did not offer; dropping the connection");
+        return -1;
+    }
+    return 0;
+}
 
 void logCallback(void *, int level, const char *message) {
     const int priority = level <= LOGGER_ERR ? ANDROID_LOG_ERROR :
@@ -378,7 +394,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeStart(
     JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile,
     jstring language, jint displayWidth, jint displayHeight, jint maxFps, jstring password,
-    jboolean allowTakeover) {
+    jboolean allowTakeover, jboolean enableH265) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     stopLocked();
     if (!deviceName || !hardwareAddress || !keyFile || !language || !password ||
@@ -486,6 +502,10 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
         stopLocked();
         return 0;
     }
+    // Bit 42, SupportsScreenMultiCodec: lets senders mirror in H.265 (with a 4K display, as
+    // UxPlay pairs it). Only offered when the TV has a hardware HEVC decoder.
+    g_h265_enabled = enableH265 == JNI_TRUE;
+    dnssd_set_airplay_features(g_dnssd, 42, g_h265_enabled ? 1 : 0);
     dnssd_set_airplay_features(g_dnssd, 0, 1);  // Video
     dnssd_set_airplay_features(g_dnssd, 4, 1);  // VideoHTTPLiveStreams
     // UxPlay turns "supports legacy pairing" off in password mode, so senders ask for it.

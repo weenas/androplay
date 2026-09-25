@@ -28,7 +28,7 @@ class AirPlayManager private constructor(context: Context) {
 
     private val nativeBridge = NativeBridge(
         onConnectionStarted = ::onNativeConnectionStarted,
-        onVideoData = { data, pts -> onNativeVideoData(data, pts, false) },
+        onVideoData = { data, pts, isH265 -> onNativeVideoData(data, pts, isH265) },
         onAudioData = { data, _ -> audioRenderer.render(data) },
         onPcmData = { data, _ -> onPcmAudio(data) },
         onAudioFlush = {
@@ -71,6 +71,15 @@ class AirPlayManager private constructor(context: Context) {
     private val videoRenderer = VideoRenderer(onFrameSizeChanged = ::onFrameSizeChanged)
     private val audioRenderer = AudioRenderer()
     private val displayManager = context.getSystemService(android.hardware.display.DisplayManager::class.java)
+    private val hevcSupport by lazy { HevcSupport.detect() }
+
+    /** The mirroring profile offered by the running receiver; decoders are sized to it. */
+    @Volatile private var advertised = MirroringProfile(h265 = false, width = DEFAULT_VIDEO_WIDTH, height = DEFAULT_VIDEO_HEIGHT)
+
+    /** The codec and display size [settings] offer senders on this TV. */
+    fun mirroringProfile(settings: ReceiverSettings): MirroringProfile =
+        MirroringProfile.of(settings, hevcSupport, displayMode.physicalWidth, displayMode.physicalHeight)
+
     private val displayMode
         get() = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY).mode
     private val hlsPlayer = HlsPlayer(context, onFinished = ::onVideoStopped)
@@ -108,7 +117,7 @@ class AirPlayManager private constructor(context: Context) {
         val protocolPort = nativeBridge.start(
             settings.deviceName,
             discoveryAdvertiser.hardwareAddress(),
-            settings.displaySize(displayMode.physicalWidth, displayMode.physicalHeight),
+            mirroringProfile(settings).also { advertised = it },
             settings.maxFps(),
             settings.requiredPin(),
             settings.allowTakeover
@@ -295,9 +304,10 @@ class AirPlayManager private constructor(context: Context) {
     fun onNativeVideoData(data: ByteArray, presentationTimeUs: Long, isH265: Boolean) {
         var stream = currentStreamInfo
         if (!stream.isMirroring) {
+            // The decoder is sized to the display offered to senders (up to 4K with H.265).
             stream = StreamInfo(
-                videoWidth = DEFAULT_VIDEO_WIDTH,
-                videoHeight = DEFAULT_VIDEO_HEIGHT,
+                videoWidth = advertised.width,
+                videoHeight = advertised.height,
                 videoFps = 60,
                 audioSampleRate = 0,
                 audioChannels = 0,
