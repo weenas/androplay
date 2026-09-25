@@ -60,6 +60,10 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     fun remoteControl(command: com.androplay.service.DacpClient.Command) = manager.remoteControl(command)
 
+    fun toggleVideoPause() = manager.toggleVideoPause()
+
+    fun seekVideoBy(deltaSec: Int) = manager.seekVideoBy(deltaSec)
+
     /** The AirPlay video player, if one is active. Main thread only. */
     val videoPlayer get() = manager.videoPlayer
 

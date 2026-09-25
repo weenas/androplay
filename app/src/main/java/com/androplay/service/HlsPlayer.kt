@@ -111,6 +111,27 @@ class HlsPlayer(
         }
     }
 
+    /**
+     * TV-remote controls. The sender learns about them from its next playback-info poll,
+     * so its own controls stay in sync.
+     */
+    fun togglePause() {
+        main.post {
+            player?.let { it.playWhenReady = !it.playWhenReady }
+            updateSnapshot()
+        }
+    }
+
+    fun seekBy(deltaSec: Int) {
+        main.post {
+            val exo = player ?: return@post
+            val target = (exo.currentPosition + deltaSec * 1000L).coerceAtLeast(0)
+            val duration = exo.duration
+            exo.seekTo(if (duration > 0) target.coerceAtMost(duration) else target)
+            updateSnapshot()
+        }
+    }
+
     fun setVolume(gain: Float) {
         volume = gain
         main.post { player?.volume = gain }

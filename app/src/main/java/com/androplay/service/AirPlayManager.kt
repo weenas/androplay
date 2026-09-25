@@ -235,6 +235,12 @@ class AirPlayManager private constructor(context: Context) {
         }
     }
 
+    /** TV-remote control of AirPlay video (e.g. YouTube): pause/resume. */
+    fun toggleVideoPause() = hlsPlayer.togglePause()
+
+    /** TV-remote control of AirPlay video: skip by [deltaSec] (negative rewinds). */
+    fun seekVideoBy(deltaSec: Int) = hlsPlayer.seekBy(deltaSec)
+
     /** Controls the sender's playback (music apps), from the TV remote or the screen. */
     fun remoteControl(command: DacpClient.Command) {
         Log.d(TAG, "Remote control: ${command.path}")
