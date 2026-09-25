@@ -5,8 +5,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 set(THIRD_PARTY_ROOT ${CMAKE_SOURCE_DIR}/../../../../third_party)
-set(RPIPLAY_ROOT ${THIRD_PARTY_ROOT}/RPiPlay)
-set(RPIPLAY_LIB ${RPIPLAY_ROOT}/lib)
+set(UXPLAY_ROOT ${THIRD_PARTY_ROOT}/UxPlay)
 set(LIBPLIST_ROOT ${THIRD_PARTY_ROOT}/libplist)
 
 find_package(openssl REQUIRED CONFIG)
@@ -47,63 +46,36 @@ target_compile_options(plist PRIVATE
     -Wno-int-conversion
 )
 
-# Patch raop_rtp_mirror.c without touching the submodule: raop_rtp_mirror_stop() closes
-# mirror_data_sock and sets it to -1 while the mirror thread may be between select() and
-# FD_ISSET(). glibc tolerates FD_ISSET(-1); bionic's FORTIFY aborts the process, which
-# happened every time a sender stopped mirroring. Snapshot the fd once per iteration.
-file(READ ${RPIPLAY_LIB}/raop_rtp_mirror.c RAOP_RTP_MIRROR_C)
-# A function rather than a list: the snippets contain ';', which CMake lists split on.
-function(patch_raop_rtp_mirror from to)
-    string(FIND "${RAOP_RTP_MIRROR_C}" "${from}" at)
-    if(at EQUAL -1)
-        message(FATAL_ERROR "raop_rtp_mirror.c no longer matches the Android fd-race patch; update it")
-    endif()
-    string(REPLACE "${from}" "${to}" patched "${RAOP_RTP_MIRROR_C}")
-    set(RAOP_RTP_MIRROR_C "${patched}" PARENT_SCOPE)
-endfunction()
-patch_raop_rtp_mirror(
-    "        FD_ZERO(&rfds);\n        if (stream_fd == -1) {\n            FD_SET(raop_rtp_mirror->mirror_data_sock, &rfds);\n            nfds = raop_rtp_mirror->mirror_data_sock+1;"
-    "        FD_ZERO(&rfds);\n        int data_sock = raop_rtp_mirror->mirror_data_sock;\n        if (stream_fd == -1 && data_sock == -1) break;\n        if (stream_fd == -1) {\n            FD_SET(data_sock, &rfds);\n            nfds = data_sock+1;")
-patch_raop_rtp_mirror(
-    "if (stream_fd == -1 && FD_ISSET(raop_rtp_mirror->mirror_data_sock, &rfds))"
-    "if (stream_fd == -1 && FD_ISSET(data_sock, &rfds))")
-patch_raop_rtp_mirror(
-    "stream_fd = accept(raop_rtp_mirror->mirror_data_sock,"
-    "stream_fd = accept(data_sock,")
-set(RAOP_RTP_MIRROR_PATCHED ${CMAKE_CURRENT_BINARY_DIR}/patched/raop_rtp_mirror.c)
-file(WRITE ${RAOP_RTP_MIRROR_PATCHED} "${RAOP_RTP_MIRROR_C}")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RPIPLAY_LIB}/raop_rtp_mirror.c)
+# UxPlay's protocol library (lib/ only: its GStreamer renderers are replaced by MediaCodec,
+# and its dns_sd/ and mdnsd/ publishers by Kotlin NsdManager via dnssd_android.c).
+set(UXPLAY_LIB ${UXPLAY_ROOT}/lib)
+file(GLOB UXPLAY_SRC ${UXPLAY_LIB}/*.c)
+file(GLOB PLAYFAIR_SRC ${UXPLAY_LIB}/playfair/*.c)
+file(GLOB LLHTTP_SRC ${UXPLAY_LIB}/llhttp/*.c)
 
-file(GLOB RPIPLAY_SRC ${RPIPLAY_LIB}/*.c)
-list(FILTER RPIPLAY_SRC EXCLUDE REGEX ".*/(dnssd|raop_rtp_mirror)\\.c$")
-list(APPEND RPIPLAY_SRC ${RAOP_RTP_MIRROR_PATCHED})
-file(GLOB PLAYFAIR_SRC
-    ${RPIPLAY_LIB}/playfair/*.c
-    ${RPIPLAY_LIB}/playfair/*.cpp
-)
-file(GLOB LLHTTP_SRC ${RPIPLAY_LIB}/llhttp/*.c)
-
-add_library(rpiplay STATIC
-    ${RPIPLAY_SRC}
+add_library(uxplay STATIC
+    ${UXPLAY_SRC}
     ${PLAYFAIR_SRC}
     ${LLHTTP_SRC}
-    ${CMAKE_CURRENT_SOURCE_DIR}/dnssd_stub.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/dnssd_android.c
 )
-target_include_directories(rpiplay PUBLIC
-    ${RPIPLAY_LIB}
-    ${RPIPLAY_LIB}/playfair
-    ${RPIPLAY_LIB}/llhttp
+target_include_directories(uxplay PUBLIC
+    ${UXPLAY_LIB}
+    ${UXPLAY_LIB}/playfair
+    ${UXPLAY_LIB}/llhttp
 )
-target_compile_definitions(rpiplay PRIVATE
+target_compile_definitions(uxplay PRIVATE
     _GNU_SOURCE
-    OPENSSL_API_COMPAT=0x10101000L
+    # The bundled libplist is 2.6.0 (see PACKAGE_VERSION above); UxPlay's own build
+    # detects these via pkg-config.
+    PLIST_210
+    PLIST_230
 )
-target_compile_options(rpiplay PRIVATE
+target_compile_options(uxplay PRIVATE
     -Wno-deprecated-declarations
     -Wno-pointer-sign
-    -Wno-implicit-function-declaration
 )
-target_link_libraries(rpiplay PUBLIC plist openssl::crypto)
+target_link_libraries(uxplay PUBLIC plist openssl::crypto log)
 
 add_library(androplay_protocol SHARED
     jni_bridge.cpp
@@ -111,4 +83,4 @@ add_library(androplay_protocol SHARED
     audio_sink.cpp
 )
 target_include_directories(androplay_protocol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(androplay_protocol PRIVATE rpiplay log android)
+target_link_libraries(androplay_protocol PRIVATE uxplay log android)

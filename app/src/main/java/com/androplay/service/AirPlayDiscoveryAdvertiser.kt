@@ -13,7 +13,7 @@ import java.security.SecureRandom
 import java.util.Locale
 
 /**
- * TXT key/value pairs for `_airplay._tcp` (without `deviceid`) and `_raop._tcp`.
+ * TXT key/value pairs for `_airplay._tcp` and `_raop._tcp`.
  * They must be identical to what the protocol core returns from /info and uses
  * in its handshake, so they normally come from [NativeBridge.discoveryRecords].
  */
