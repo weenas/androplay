@@ -29,6 +29,16 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
     private val _settings = MutableStateFlow(settingsStore.load())
     val settings: StateFlow<ReceiverSettings> = _settings.asStateFlow()
 
+    private val networkMonitor = com.androplay.service.NetworkMonitor(application).also { it.start() }
+    /** The TV's network (type, Wi-Fi name, IP) for the home screen. */
+    val network: StateFlow<com.androplay.service.NetworkStatus> = networkMonitor.status
+    val appVersion: String = com.androplay.BuildConfig.VERSION_NAME
+
+    fun canReadWifiName() = networkMonitor.canReadSsid()
+
+    /** Call after the location permission was granted, so the Wi-Fi name appears. */
+    fun refreshNetwork() = networkMonitor.refresh()
+
     // StateFlow, not LiveData: Compose only recomposes for state it observes.
     private val _navigateToSettings = MutableStateFlow(false)
     val navigateToSettings: StateFlow<Boolean> = _navigateToSettings.asStateFlow()
@@ -101,6 +111,7 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         super.onCleared()
+        networkMonitor.stop()
         manager.unregisterStateCallback(stateCallback)
     }
 }
