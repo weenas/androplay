@@ -12,6 +12,8 @@ interface AudioSink {
     fun onPcmData(data: ByteArray, presentationTimeUs: Long)
     /** The sender flushed (pause, seek, next track): drop audio not yet played. */
     fun onAudioFlush()
+    /** The sender's volume slider in AirPlay dB: -30 to 0, or -144 for mute. */
+    fun onVolume(db: Float)
 }
 
 /**

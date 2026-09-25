@@ -31,6 +31,11 @@ class AirPlayManager private constructor(context: Context) {
         onAudioData = { data, _ -> audioRenderer.render(data) },
         onPcmData = { data, _ -> audioRenderer.renderPcm(data) },
         onAudioFlush = { audioRenderer.flush() },
+        onVolume = { db ->
+            val gain = AirPlayVolume.toGain(db)
+            audioRenderer.setVolume(gain)
+            hlsPlayer.setVolume(gain)
+        },
         videoPlayback = object : VideoPlaybackListener {
             override fun onPlay(url: String, startPositionSec: Float) = onVideoPlay(url, startPositionSec)
             override fun onSeek(positionSec: Float) = hlsPlayer.seek(positionSec)

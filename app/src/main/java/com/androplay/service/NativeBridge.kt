@@ -13,6 +13,7 @@ class NativeBridge(
     private val onAudioData: (ByteArray, Long) -> Unit,
     private val onPcmData: (ByteArray, Long) -> Unit,
     private val onAudioFlush: () -> Unit,
+    private val onVolume: (Float) -> Unit,
     private val videoPlayback: VideoPlaybackListener,
     private val onSessionEnd: () -> Unit
 ) {
@@ -63,6 +64,10 @@ class NativeBridge(
 
             override fun onAudioFlush() {
                 this@NativeBridge.onAudioFlush.invoke()
+            }
+
+            override fun onVolume(db: Float) {
+                this@NativeBridge.onVolume.invoke(db)
             }
         })
     }
