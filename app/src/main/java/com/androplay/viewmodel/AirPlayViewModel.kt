@@ -57,6 +57,9 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
         manager.stop()
     }
 
+    /** The AirPlay video player, if one is active. Main thread only. */
+    val videoPlayer get() = manager.videoPlayer
+
     fun setVideoSurface(surface: Surface?) {
         manager.setVideoSurface(surface)
     }

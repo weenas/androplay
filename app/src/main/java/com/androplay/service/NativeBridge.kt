@@ -4,12 +4,14 @@ import android.content.Context
 import android.util.Log
 import com.androplay.protocol.AirPlayNative
 import com.androplay.protocol.AudioSink
+import com.androplay.protocol.VideoPlaybackListener
 import com.androplay.protocol.VideoSink
 
 class NativeBridge(
     private val onConnectionStarted: () -> Unit,
     private val onVideoData: (ByteArray, Long) -> Unit,
     private val onAudioData: (ByteArray, Long) -> Unit,
+    private val videoPlayback: VideoPlaybackListener,
     private val onSessionEnd: () -> Unit
 ) {
     companion object {
@@ -29,12 +31,15 @@ class NativeBridge(
     }
 
     private var keyFile: String? = null
+    private var language = "en"
 
     fun initialize(context: Context) {
         Log.d(TAG, "Initializing native bridge")
         keyFile = java.io.File(context.noBackupFilesDir, "airplay_pairing_key.pem").absolutePath
+        language = java.util.Locale.getDefault().toLanguageTag()
         if (!isAvailable) return
         AirPlayNative.connectionListener = onConnectionStarted
+        AirPlayNative.videoPlaybackListener = videoPlayback
         AirPlayNative.setVideoSink(object : VideoSink {
             override fun onVideoData(data: ByteArray, presentationTimeUs: Long) {
                 // Qualified: an unqualified call resolves to this override and recurses.
@@ -56,7 +61,7 @@ class NativeBridge(
         val key = keyFile ?: return 0
         if (!isAvailable) return 0
         return try {
-            AirPlayNative.start(deviceName, hardwareAddress, key)
+            AirPlayNative.start(deviceName, hardwareAddress, key, language)
         } catch (e: UnsatisfiedLinkError) {
             Log.e(TAG, "Native start method is unavailable", e)
             0
