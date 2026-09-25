@@ -1,10 +1,10 @@
 # AndroPlay - AirPlay Receiver for Android TV
 
-An open-source Android TV project for receiving AirPlay streams. The receiver is under active development and now includes an initial AirPlay mirroring protocol path.
+An open-source Android TV project for receiving AirPlay streams. The receiver is under active development: screen mirroring and in-app video casting (e.g. the YouTube app) work on real devices.
 
 ## What is AndroPlay?
 
-AndroPlay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The current protocol module embeds the legacy-mirroring core from [RPiPlay](https://github.com/FD-/RPiPlay), with Android mDNS advertising and MediaCodec output.
+AndroPlay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The protocol module embeds the protocol library (`lib/`) from [UxPlay](https://github.com/FDH2/UxPlay), with Android NsdManager advertising, MediaCodec/AudioTrack output for mirroring, and Media3 ExoPlayer for AirPlay video.
 
 ## Planned Features
 
@@ -22,16 +22,23 @@ AndroPlay aims to receive screen mirroring, audio, and video streams from AirPla
 
 ## Current Status
 
-The Android TV UI, persistent receiver settings, foreground service lifecycle, mDNS discovery, native AirPlay listener, JNI bridge, and Android MediaCodec video path build successfully. Pressing **Start** now starts the protocol listener and advertises its real port. The initial core supports legacy H.264 mirroring; audio output, H.265, in-app video casting, and broad sender compatibility are not complete. Device-level streaming validation is still in progress.
+Tested with an iPhone on a Sony BRAVIA (Android 12):
+
+- **Screen mirroring** with AAC-ELD audio, portrait and landscape.
+- **AirPlay video (HLS)** from in-app players such as YouTube: the phone hands over the playlists and the TV plays them with ExoPlayer, resuming at the phone's position.
+
+AirPlay video is fetched by the TV itself (as on an Apple TV), so the TV must be able to reach the video source directly. For YouTube that means `googlevideo.com`; on networks where the phone only reaches it through a proxy or VPN, the TV needs one too, or playback stays black.
+
+Not done yet: audio-only AirPlay (music apps send ALAC, which Android has no built-in decoder for), H.265 mirroring, and on-screen loading/error feedback during AirPlay video.
 
 ## Planned Technical Implementation
 
-- **AirPlay Protocol**: RPiPlay currently handles the legacy RAOP/RTSP/RTP protocol stack
+- **AirPlay Protocol**: UxPlay's `lib/` (RAOP/RTSP/RTP, pairing, FairPlay, AirPlay video with FCUP)
 - **JNI Bridge**: Native C code interfaces with Android Java/Kotlin layer
 - **Video Decoding**: Android MediaCodec (hardware accelerated)
 - **Audio Output**: AudioTrack for low-latency audio
 - **HLS Streaming**: Media3/ExoPlayer for video casting
-- **mDNS Discovery**: Bonjour/Avahi for device discovery
+- **mDNS Discovery**: Android NsdManager, publishing the TXT records UxPlay builds
 
 ## Building from Source
 
@@ -40,7 +47,8 @@ The Android TV UI, persistent receiver settings, foreground service lifecycle, m
 git clone --recurse-submodules git@github.com:weenas/androplay.git
 cd AndroPlay
 
-# Build (requires JDK 17, Android SDK 35, NDK 27.0.12077973, and CMake 3.22.1)
+# Build (requires JDK 17-21, Android SDK 35, NDK 27.0.12077973, and CMake 3.22.1;
+# JDK 26 breaks AGP 8.7.3's prefab step)
 ./gradlew assembleDebug
 ```
 
@@ -66,7 +74,7 @@ AndroPlay/
 │   │   └── res/              # Android resources
 │   └── build.gradle.kts
 ├── airplay/                # Android library, JNI bridge, and native protocol build
-├── third_party/            # Pinned RPiPlay and libplist submodules
+├── third_party/            # Pinned UxPlay and libplist submodules
 └── README.md
 ```
 
@@ -77,9 +85,9 @@ See the LICENSE file for details.
 
 ## Credits
 
-- [RPiPlay](https://github.com/FD-/RPiPlay) - legacy AirPlay mirroring protocol core
+- [UxPlay](https://github.com/FDH2/UxPlay) - AirPlay protocol library (mirroring, audio, HLS video)
+- [RPiPlay](https://github.com/FD-/RPiPlay) - the original core UxPlay's library grew from
 - [libplist](https://github.com/libimobiledevice/libplist) - binary plist support
-- [UxPlay](https://github.com/FDH2/UxPlay) - reference for newer AirPlay receiver behavior
 - Android Open Source Project - Base platform
 
 ## Disclaimer
