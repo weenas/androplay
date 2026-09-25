@@ -29,7 +29,7 @@ class AirPlayManager private constructor(context: Context) {
         onSessionEnd = ::onNativeStreamStopped
     )
     private val discoveryAdvertiser = AirPlayDiscoveryAdvertiser(context)
-    private val videoRenderer = VideoRenderer()
+    private val videoRenderer = VideoRenderer(onFrameSizeChanged = ::onFrameSizeChanged)
     private val settingsStore = ReceiverSettingsStore(context)
 
     private val _stateCallbacks = mutableListOf<(AirPlayConnectionState, StreamInfo, String?) -> Unit>()
@@ -132,6 +132,11 @@ class AirPlayManager private constructor(context: Context) {
 
     fun setVideoSurface(surface: Surface?) {
         videoRenderer.setSurface(surface)
+    }
+
+    private fun onFrameSizeChanged(width: Int, height: Int) {
+        currentStreamInfo = currentStreamInfo.copy(frameWidth = width, frameHeight = height)
+        notifyStateChange(currentState)
     }
 
     /** The protocol core forwards complete Annex B frames here for MediaCodec decoding. */

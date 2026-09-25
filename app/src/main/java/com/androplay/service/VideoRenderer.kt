@@ -18,7 +18,10 @@ import java.util.ArrayDeque
  * RPiPlay delivers SPS/PPS as a separate buffer only once per session, so that codec config is
  * cached and replayed whenever the decoder is (re)created, e.g. when the Surface appears late.
  */
-class VideoRenderer {
+class VideoRenderer(
+    /** Called on the decoder thread with the visible picture size whenever it changes. */
+    private val onFrameSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
+) {
     private val lock = Any()
     private val handler = Handler(HandlerThread("AndroPlay-video").apply { start() }.looper)
 
@@ -34,6 +37,7 @@ class VideoRenderer {
     private val pendingFrames = ArrayDeque<Frame>()
     private val freeInputs = ArrayDeque<Int>()
     private var droppedFrames = 0L
+    private var renderedFrames = 0L
 
     private class Frame(val data: ByteArray, val presentationTimeUs: Long, val flags: Int) {
         val isConfig: Boolean get() = flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
@@ -74,7 +78,7 @@ class VideoRenderer {
 
     /**
      * Queues one access unit for decoding. Returns false when the frame was discarded
-     * (no decoder yet, waiting for a key frame, or the backlog was flushed).
+     * (waiting for a key frame, or the backlog was flushed).
      */
     fun render(accessUnit: ByteArray, presentationTimeUs: Long): Boolean {
         if (accessUnit.isEmpty()) return false
@@ -87,7 +91,9 @@ class VideoRenderer {
                 return true
             }
 
-            if (codec == null) return false
+            // No codec yet (the Surface usually appears just after the stream starts): keep
+            // buffering from the key frame on, because the sender only sends IDRs at session
+            // start and on format changes. feedLocked() is a no-op until the decoder exists.
             if (awaitingKeyFrame && !nal.hasRandomAccess) {
                 droppedFrames++
                 return false
@@ -119,6 +125,8 @@ class VideoRenderer {
             width = 0
             height = 0
             codecConfig = null
+            pendingFrames.clear()
+            awaitingKeyFrame = true
             if (droppedFrames > 0) Log.i(TAG, "Session ended, $droppedFrames video frames dropped")
             droppedFrames = 0
         }
@@ -170,22 +178,24 @@ class VideoRenderer {
             decoder.setCallback(DecoderCallback(decoder), handler)
             decoder.configure(MediaFormat.createVideoFormat(mimeType, width, height), target, null, 0)
             codec = decoder
-            awaitingKeyFrame = true
+            renderedFrames = 0
             codecConfig?.let { pendingFrames.addFirst(Frame(it, 0, MediaCodec.BUFFER_FLAG_CODEC_CONFIG)) }
             decoder.start()
         } catch (error: Exception) {
             Log.e(TAG, "Unable to start $mimeType decoder", error)
             codec = null
             pendingFrames.clear()
+            awaitingKeyFrame = true
             decoder.release()
         }
     }
 
     private fun releaseCodecLocked() {
+        freeInputs.clear()
+        // Frames buffered before any decoder existed are still decodable by the next one.
+        val decoder = codec ?: return
         awaitingKeyFrame = true
         pendingFrames.clear()
-        freeInputs.clear()
-        val decoder = codec ?: return
         codec = null
         try {
             decoder.stop()
@@ -217,6 +227,7 @@ class VideoRenderer {
                 try {
                     // Mirroring is live: show every decoded frame immediately.
                     mc.releaseOutputBuffer(index, info.size > 0)
+                    if (info.size > 0 && renderedFrames++ == 0L) Log.i(TAG, "First video frame rendered")
                 } catch (error: IllegalStateException) {
                     Log.w(TAG, "Could not release output buffer", error)
                 }
@@ -225,6 +236,19 @@ class VideoRenderer {
 
         override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {
             Log.i(TAG, "Decoder output format: $format")
+            // The buffer is padded (e.g. 1920x1088 for a 448x972 portrait stream); the crop
+            // rect is the part the sender actually drew.
+            val width = if (format.containsKey(KEY_CROP_LEFT) && format.containsKey(KEY_CROP_RIGHT)) {
+                format.getInteger(KEY_CROP_RIGHT) - format.getInteger(KEY_CROP_LEFT) + 1
+            } else {
+                format.getInteger(MediaFormat.KEY_WIDTH)
+            }
+            val height = if (format.containsKey(KEY_CROP_TOP) && format.containsKey(KEY_CROP_BOTTOM)) {
+                format.getInteger(KEY_CROP_BOTTOM) - format.getInteger(KEY_CROP_TOP) + 1
+            } else {
+                format.getInteger(MediaFormat.KEY_HEIGHT)
+            }
+            if (width > 0 && height > 0) onFrameSizeChanged(width, height)
         }
 
         override fun onError(mc: MediaCodec, error: MediaCodec.CodecException) {
@@ -275,5 +299,10 @@ class VideoRenderer {
         const val TAG = "AndroPlayVideo"
         /** About two seconds at 60 fps before the backlog is flushed. */
         const val MAX_PENDING_FRAMES = 120
+        // MediaFormat.KEY_CROP_* are only public from API 33.
+        const val KEY_CROP_LEFT = "crop-left"
+        const val KEY_CROP_RIGHT = "crop-right"
+        const val KEY_CROP_TOP = "crop-top"
+        const val KEY_CROP_BOTTOM = "crop-bottom"
     }
 }

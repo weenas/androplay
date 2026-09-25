@@ -61,6 +61,18 @@ void connectionStopped(void *) {
     androplay::dispatchSessionEnd();
 }
 
+/*
+ * RPiPlay invokes these without null checks (raop.c conn_destroy, raop_rtp.c
+ * control thread), so every slot must be populated even when unused.
+ */
+void audioFlush(void *) {}
+void videoFlush(void *) {}
+void audioSetVolume(void *, float) {}
+void audioSetMetadata(void *, const void *, int) {}
+void audioSetCoverart(void *, const void *, int) {}
+void audioRemoteControlId(void *, const char *, const char *) {}
+void audioSetProgress(void *, unsigned int, unsigned int, unsigned int) {}
+
 void logCallback(void *, int level, const char *message) {
     const int priority = level <= RAOP_LOG_ERR ? ANDROID_LOG_ERROR :
         (level <= RAOP_LOG_WARNING ? ANDROID_LOG_WARN : ANDROID_LOG_DEBUG);
@@ -150,6 +162,13 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
     callbacks.video_process = videoProcess;
     callbacks.conn_init = connectionStarted;
     callbacks.conn_destroy = connectionStopped;
+    callbacks.audio_flush = audioFlush;
+    callbacks.video_flush = videoFlush;
+    callbacks.audio_set_volume = audioSetVolume;
+    callbacks.audio_set_metadata = audioSetMetadata;
+    callbacks.audio_set_coverart = audioSetCoverart;
+    callbacks.audio_remote_control_id = audioRemoteControlId;
+    callbacks.audio_set_progress = audioSetProgress;
 
     g_raop = raop_init(4, &callbacks);
     if (!g_raop) {
@@ -158,7 +177,11 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
         return 0;
     }
     raop_set_log_callback(g_raop, logCallback, nullptr);
+#ifdef NDEBUG
     raop_set_log_level(g_raop, RAOP_LOG_INFO);
+#else
+    raop_set_log_level(g_raop, RAOP_LOG_DEBUG);
+#endif
 
     int dnsError = 0;
     g_dnssd = dnssd_init(name, static_cast<int>(strlen(name)), address, 6, &dnsError);

@@ -21,5 +21,8 @@ data class StreamInfo(
     val audioSampleRate: Int = 44100,
     val audioChannels: Int = 2,
     val isMirroring: Boolean = false,
-    val isPlaying: Boolean = false
+    val isPlaying: Boolean = false,
+    /** Visible size of the decoded picture (crop rect); 0 until the decoder reports it. */
+    val frameWidth: Int = 0,
+    val frameHeight: Int = 0
 )

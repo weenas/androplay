@@ -32,11 +32,12 @@ class NativeBridge(
         AirPlayNative.connectionListener = onConnectionStarted
         AirPlayNative.setVideoSink(object : VideoSink {
             override fun onVideoData(data: ByteArray, presentationTimeUs: Long) {
-                onVideoData(data, presentationTimeUs)
+                // Qualified: an unqualified call resolves to this override and recurses.
+                this@NativeBridge.onVideoData(data, presentationTimeUs)
             }
 
             override fun onSessionEnd() {
-                onSessionEnd.invoke()
+                this@NativeBridge.onSessionEnd.invoke()
             }
         })
     }
