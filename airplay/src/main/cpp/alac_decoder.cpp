@@ -1,6 +1,6 @@
 #include "alac_decoder.h"
 
-#include <android/log.h>
+#include "file_log.h"
 
 #include "ALACBitUtilities.h"
 #include "ALACDecoder.h"
@@ -23,7 +23,7 @@ uint8_t kMagicCookie[] = {
 
 AlacDecoder::AlacDecoder() : decoder_(new ALACDecoder()) {
     ready_ = decoder_->Init(kMagicCookie, sizeof(kMagicCookie)) == ALAC_noErr;
-    if (!ready_) __android_log_print(ANDROID_LOG_ERROR, "AndroPlayAlac", "ALAC decoder init failed");
+    if (!ready_) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayAlac", "ALAC decoder init failed");
 }
 
 AlacDecoder::~AlacDecoder() = default;

@@ -4,7 +4,7 @@ import android.media.MediaCodec
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
+import com.androplay.util.Log
 import android.view.Surface
 import java.util.ArrayDeque
 

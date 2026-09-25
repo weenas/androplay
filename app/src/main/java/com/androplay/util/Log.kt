@@ -1,0 +1,92 @@
+package com.androplay.util
+
+import android.content.Context
+import com.androplay.BuildConfig
+import com.androplay.protocol.AirPlayNative
+import java.io.File
+import java.io.FileOutputStream
+import java.io.PrintWriter
+import java.io.StringWriter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import android.util.Log as AndroidLog
+
+/**
+ * Drop-in for [android.util.Log] that, in debug builds, also appends to
+ * `<external files dir>/logs/androplay.log` together with native and protocol logs.
+ *
+ * Some TVs (e.g. TCL) silence app logs in logd, so logcat shows nothing. Fetch the file with
+ * `adb pull /sdcard/Android/data/com.androplay/files/logs/androplay.log`.
+ */
+object Log {
+    /** Stop appending past this size rather than filling the TV's storage (as native does). */
+    private const val MAX_FILE_BYTES = 20L * 1024 * 1024
+
+    @Volatile private var file: File? = null
+    private var output: FileOutputStream? = null
+    private val timeFormat = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US)
+
+    /** Starts the log file (debug builds only); the previous run's file is kept as ".1". */
+    @Synchronized
+    fun init(context: Context) {
+        if (!BuildConfig.DEBUG || file != null) return
+        val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "logs").apply { mkdirs() }
+        val current = File(dir, "androplay.log")
+        if (current.exists()) current.renameTo(File(dir, "androplay.log.1"))
+        output = FileOutputStream(current, true)
+        file = current
+        try {
+            AirPlayNative.setLogFile(current.absolutePath)
+        } catch (error: UnsatisfiedLinkError) {
+            // No native library: Kotlin logs still reach the file.
+        }
+        androidx.media3.common.util.Log.setLogger(Media3Logger)
+        i("AndroPlay", "Logging to ${current.absolutePath}")
+    }
+
+    fun d(tag: String, message: String) = log(AndroidLog.DEBUG, tag, message, null)
+    fun d(tag: String, message: String, error: Throwable?) = log(AndroidLog.DEBUG, tag, message, error)
+    fun i(tag: String, message: String) = log(AndroidLog.INFO, tag, message, null)
+    fun i(tag: String, message: String, error: Throwable?) = log(AndroidLog.INFO, tag, message, error)
+    fun w(tag: String, message: String) = log(AndroidLog.WARN, tag, message, null)
+    fun w(tag: String, message: String, error: Throwable?) = log(AndroidLog.WARN, tag, message, error)
+    fun e(tag: String, message: String) = log(AndroidLog.ERROR, tag, message, null)
+    fun e(tag: String, message: String, error: Throwable?) = log(AndroidLog.ERROR, tag, message, error)
+
+    private fun log(priority: Int, tag: String, message: String, error: Throwable?): Int {
+        val full = if (error == null) message else message + "\n" + stackTrace(error)
+        val result = AndroidLog.println(priority, tag, full)
+        if (file != null) append(priority, tag, full)
+        return result
+    }
+
+    @Synchronized
+    private fun append(priority: Int, tag: String, message: String) {
+        val target = file ?: return
+        val stream = output ?: return
+        if (target.length() > MAX_FILE_BYTES) return
+        val letter = "??VDIWEA".getOrElse(priority) { '?' }
+        val prefix = "%s %5d %5d %c %s: ".format(
+            Locale.US, timeFormat.format(Date()), android.os.Process.myPid(), android.os.Process.myTid(), letter, tag
+        )
+        val text = message.lines().joinToString("") { prefix + it + "\n" }
+        try {
+            // One append-mode write per entry keeps lines whole next to the native writer.
+            stream.write(text.toByteArray())
+        } catch (error: Exception) {
+            AndroidLog.w("AndroPlay", "Log file write failed", error)
+        }
+    }
+
+    private fun stackTrace(error: Throwable): String =
+        StringWriter().also { error.printStackTrace(PrintWriter(it)) }.toString().trimEnd()
+
+    /** Routes Media3 (ExoPlayer, EventLogger) logs into the same file. */
+    private object Media3Logger : androidx.media3.common.util.Log.Logger {
+        override fun d(tag: String, message: String, throwable: Throwable?) { Log.d(tag, message, throwable) }
+        override fun i(tag: String, message: String, throwable: Throwable?) { Log.i(tag, message, throwable) }
+        override fun w(tag: String, message: String, throwable: Throwable?) { Log.w(tag, message, throwable) }
+        override fun e(tag: String, message: String, throwable: Throwable?) { Log.e(tag, message, throwable) }
+    }
+}

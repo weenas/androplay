@@ -1,7 +1,7 @@
 package com.androplay.service
 
 import android.content.Context
-import android.util.Log
+import com.androplay.util.Log
 import com.androplay.protocol.AirPlayNative
 import com.androplay.protocol.AudioSink
 import com.androplay.protocol.VideoPlaybackListener
