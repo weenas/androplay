@@ -29,11 +29,12 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
     private val _settings = MutableStateFlow(settingsStore.load())
     val settings: StateFlow<ReceiverSettings> = _settings.asStateFlow()
 
-    private var _navigateToSettings = MutableLiveData(false)
-    val navigateToSettings: LiveData<Boolean> = _navigateToSettings
+    // StateFlow, not LiveData: Compose only recomposes for state it observes.
+    private val _navigateToSettings = MutableStateFlow(false)
+    val navigateToSettings: StateFlow<Boolean> = _navigateToSettings.asStateFlow()
 
-    private var _navigateBack = MutableLiveData(false)
-    val navigateBack: LiveData<Boolean> = _navigateBack
+    private val _navigateBack = MutableStateFlow(false)
+    val navigateBack: StateFlow<Boolean> = _navigateBack.asStateFlow()
 
     private val stateCallback: (AirPlayConnectionState, StreamInfo, String?) -> Unit = { state, streamInfo, error ->
         _state.value = AirPlayUiState(state, streamInfo, error)
