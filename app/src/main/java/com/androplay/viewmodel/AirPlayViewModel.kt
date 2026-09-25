@@ -65,8 +65,11 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateSettings(transform: (ReceiverSettings) -> ReceiverSettings) {
-        _settings.value = transform(_settings.value)
-        settingsStore.save(_settings.value)
+        val updated = transform(_settings.value)
+        if (updated == _settings.value) return
+        _settings.value = updated
+        settingsStore.save(updated)
+        manager.restartIfRunning(updated)
     }
 
     fun navigateToSettings() {
