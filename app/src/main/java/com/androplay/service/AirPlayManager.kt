@@ -78,10 +78,18 @@ class AirPlayManager private constructor(context: Context) {
 
     /** The codec and display size [settings] offer senders on this TV. */
     fun mirroringProfile(settings: ReceiverSettings): MirroringProfile =
-        MirroringProfile.of(settings, hevcSupport, displayMode.physicalWidth, displayMode.physicalHeight)
+        panelSize().let { (width, height) -> MirroringProfile.of(settings, hevcSupport, width, height) }
 
-    private val displayMode
-        get() = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY).mode
+    /**
+     * The panel's largest mode. Many 4K TVs render their UI in a 1080p mode and switch up only
+     * for video, so the current mode would under-report the panel.
+     */
+    private fun panelSize(): Pair<Int, Int> {
+        val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY)
+        val largest = display.supportedModes.maxByOrNull { it.physicalWidth.toLong() * it.physicalHeight }
+            ?: display.mode
+        return largest.physicalWidth to largest.physicalHeight
+    }
     private val hlsPlayer = HlsPlayer(context, onFinished = ::onVideoStopped)
     @Volatile private var nowPlaying = NowPlaying()
     private val dacp = DacpClient(context)
