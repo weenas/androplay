@@ -238,10 +238,24 @@ void audioSetVolume(void *, float db) {
     g_volume_db = db;
     androplay::dispatchVolume(db);
 }
-void audioSetMetadata(void *, const void *, int) {}
-void audioSetCoverart(void *, const void *, int) {}
+void audioSetMetadata(void *, const void *buffer, int length) {
+    androplay::dispatchMetadata(buffer, length);
+}
+
+void audioSetCoverart(void *, const void *buffer, int length) {
+    androplay::dispatchCoverArt(buffer, length);
+}
+
+void audioStopCoverartRendering(void *) {
+    androplay::dispatchCoverArt(nullptr, 0);
+}
 void audioRemoteControlId(void *, const char *, const char *) {}
-void audioSetProgress(void *, uint32_t *, uint32_t *, uint32_t *) {}
+/* RTP timestamps at 44.1 kHz; unsigned subtraction handles wraparound. */
+void audioSetProgress(void *, uint32_t *start, uint32_t *current, uint32_t *end) {
+    constexpr double kRate = 44100.0;
+    androplay::dispatchProgress(static_cast<uint32_t>(*current - *start) / kRate,
+                                static_cast<uint32_t>(*end - *start) / kRate);
+}
 void videoReportSize(void *, float *, float *, float *, float *) {}
 void mirrorVideoRunning(void *, bool) {}
 void reportClientRequest(void *, char *, char *, char *, bool *admit) { *admit = true; }
@@ -332,7 +346,7 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
     callbacks.audio_set_volume = audioSetVolume;
     callbacks.audio_set_metadata = audioSetMetadata;
     callbacks.audio_set_coverart = audioSetCoverart;
-    callbacks.audio_stop_coverart_rendering = noop;
+    callbacks.audio_stop_coverart_rendering = audioStopCoverartRendering;
     callbacks.audio_remote_control_id = audioRemoteControlId;
     callbacks.audio_set_progress = audioSetProgress;
     callbacks.audio_get_format = audioGetFormat;

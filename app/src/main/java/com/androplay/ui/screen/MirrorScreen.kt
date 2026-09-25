@@ -3,6 +3,17 @@ package com.androplay.ui.screen
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.ui.viewinterop.AndroidView
+import android.graphics.BitmapFactory
+import android.os.SystemClock
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.style.TextOverflow
+import com.androplay.service.NowPlaying
+import kotlinx.coroutines.delay
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.compose.foundation.background
@@ -29,6 +40,10 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
     if (state.connectionState == AirPlayConnectionState.Streaming) {
         if (state.streamInfo.isVideoPlayback) {
             VideoPlayback(viewModel = viewModel)
+            return
+        }
+        if (state.streamInfo.isAudioOnly) {
+            AudioPlayback(nowPlaying = state.streamInfo.nowPlaying)
             return
         }
         if (state.streamInfo.isMirroring) {
@@ -215,6 +230,83 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
             Text("Stop", fontSize = 20.sp)
         }
     }
+}
+
+/** Audio streaming (e.g. a music app): cover art, track details and progress. */
+@Composable
+fun AudioPlayback(nowPlaying: NowPlaying) {
+    val cover = remember(nowPlaying.coverArt) {
+        nowPlaying.coverArt?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
+    }
+    // Ticks the progress between the sender's (infrequent) reports.
+    var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(nowPlaying) {
+        while (true) {
+            now = SystemClock.elapsedRealtime()
+            delay(500)
+        }
+    }
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .padding(horizontal = 96.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(360.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xFF2A2A2A)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (cover != null) {
+                Image(bitmap = cover, contentDescription = "Cover art", contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize())
+            } else {
+                Text("♪", fontSize = 120.sp, color = Color.Gray)
+            }
+        }
+        Spacer(modifier = Modifier.width(64.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(nowPlaying.title ?: "AirPlay audio", fontSize = 40.sp, fontWeight = FontWeight.Bold,
+                color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            nowPlaying.artist?.let {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(it, fontSize = 26.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            nowPlaying.album?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(it, fontSize = 20.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (nowPlaying.durationSec > 0) {
+                val position = nowPlaying.currentPositionSec(now)
+                Spacer(modifier = Modifier.height(40.dp))
+                LinearProgressIndicator(
+                    progress = { (position / nowPlaying.durationSec).toFloat() },
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                    color = Color.White,
+                    trackColor = Color(0xFF444444)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(formatTime(position), fontSize = 18.sp, color = Color.Gray)
+                    Text(formatTime(nowPlaying.durationSec), fontSize = 18.sp, color = Color.Gray)
+                }
+            }
+        }
+    }
+}
+
+private fun formatTime(seconds: Double): String {
+    val total = seconds.toInt().coerceAtLeast(0)
+    return "%d:%02d".format(total / 60, total % 60)
 }
 
 /** Full-screen AirPlay video. The sender is the remote control, so no on-screen controls. */

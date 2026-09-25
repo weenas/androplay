@@ -13,5 +13,10 @@ void dispatchPcm(const int16_t *samples, int count, int64_t ptsUs);
 void dispatchAudioFlush();
 /** The sender's volume slider in AirPlay dB (-30 to 0, -144 = mute). */
 void dispatchVolume(float db);
+/** Now-playing info for audio streaming: a DMAP "mlit" listing item. */
+void dispatchMetadata(const void *dmap, int length);
+/** Cover art image bytes (usually JPEG); empty clears it. */
+void dispatchCoverArt(const void *image, int length);
+void dispatchProgress(double positionSec, double durationSec);
 }
 

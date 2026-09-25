@@ -14,6 +14,11 @@ interface AudioSink {
     fun onAudioFlush()
     /** The sender's volume slider in AirPlay dB: -30 to 0, or -144 for mute. */
     fun onVolume(db: Float)
+    /** Now-playing info for audio streaming, as a DMAP "mlit" listing item. */
+    fun onMetadata(dmap: ByteArray)
+    /** Cover art (usually JPEG); empty when the sender clears it. */
+    fun onCoverArt(image: ByteArray)
+    fun onProgress(positionSec: Double, durationSec: Double)
 }
 
 /**
