@@ -65,7 +65,14 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 Text("Security", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
             item { Spacer(modifier = Modifier.height(8.dp)) }
-            item { PinSetting(settings.pin) { pin -> viewModel.updateSettings { it.copy(pin = pin) } } }
+            item { AccessSetting(settings, viewModel) }
+            item {
+                ChoiceSetting(
+                    "When another device casts",
+                    if (settings.allowTakeover) TAKEOVER_ALLOW else TAKEOVER_REFUSE,
+                    listOf(TAKEOVER_REFUSE, TAKEOVER_ALLOW)
+                ) { choice -> viewModel.updateSettings { it.copy(allowTakeover = choice == TAKEOVER_ALLOW) } }
+            }
         }
     }
 }
@@ -91,25 +98,56 @@ fun DeviceNameSetting(label: String = "Device Name", value: String, isPassword: 
         trailingIcon = { TextButton(onClick = { onSaved(editing) }) { Text("Save") } })
 }
 
+private const val ACCESS_OPEN = "Not required"
+private const val ACCESS_PASSWORD = "Required"
+private const val TAKEOVER_REFUSE = "Refuse it"
+private const val TAKEOVER_ALLOW = "Let it take over"
+
 /**
- * The password senders must enter. Blank turns access control off; otherwise it needs at
- * least [ReceiverSettings.MIN_PIN_LENGTH] digits.
+ * Casting with or without a password. "Required" only takes effect once a valid password
+ * is saved, so choosing it can't lock everyone out by accident.
  */
+@Composable
+fun AccessSetting(settings: ReceiverSettings, viewModel: AirPlayViewModel) {
+    var choosingPassword by remember { mutableStateOf(false) }
+    ChoiceSetting(
+        "Casting password",
+        if (settings.requirePassword) ACCESS_PASSWORD else ACCESS_OPEN,
+        listOf(ACCESS_OPEN, ACCESS_PASSWORD)
+    ) { choice ->
+        if (choice == ACCESS_OPEN) {
+            choosingPassword = false
+            viewModel.updateSettings { it.copy(requirePassword = false) }
+        } else if (ReceiverSettings.isValidPin(settings.pin)) {
+            viewModel.updateSettings { it.copy(requirePassword = true) }
+        } else {
+            choosingPassword = true  // enabled when a valid password is saved below
+        }
+    }
+    if (settings.requirePassword || choosingPassword) {
+        PinSetting(settings.pin) { pin ->
+            choosingPassword = false
+            viewModel.updateSettings { it.copy(pin = pin, requirePassword = true) }
+        }
+    }
+}
+
+/** The password senders must enter: at least [ReceiverSettings.MIN_PIN_LENGTH] digits. */
 @Composable
 fun PinSetting(value: String, onSaved: (String) -> Unit) {
     var editing by remember(value) { mutableStateOf(value) }
-    val invalid = editing.isNotEmpty() && !ReceiverSettings.isValidPin(editing)
+    val invalid = !ReceiverSettings.isValidPin(editing)
     OutlinedTextField(
         value = editing,
         onValueChange = { editing = it.filter(Char::isDigit) },
-        label = { Text(if (value.isBlank()) "Password (off)" else "Password (on)") },
+        label = { Text("Password") },
         supportingText = {
             Text(
-                if (invalid) "Use at least ${ReceiverSettings.MIN_PIN_LENGTH} digits, or leave empty to turn it off."
-                else "Devices must enter this to AirPlay to the TV. Leave empty to allow anyone on the network."
+                if (invalid) "Use at least ${ReceiverSettings.MIN_PIN_LENGTH} digits."
+                else "Devices must enter this to AirPlay to the TV."
             )
         },
-        isError = invalid,
+        isError = invalid && editing.isNotEmpty(),
         singleLine = true,
         visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(

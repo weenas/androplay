@@ -55,7 +55,8 @@ object AirPlayNative {
      * pairing key (created on first use) so senders see the same identity after restarts.
      * [language] (BCP 47, e.g. "zh-CN") picks audio and subtitle tracks in AirPlay video.
      * The display size and [maxFps] are what senders mirror to; a non-empty [password]
-     * (at least 4 characters) must be entered by every sender.
+     * (at least 4 characters) must be entered by every sender. With [allowTakeover], a new
+     * sender replaces a connected one; otherwise it is refused (409).
      */
     fun start(
         deviceName: String,
@@ -65,11 +66,14 @@ object AirPlayNative {
         displayWidth: Int,
         displayHeight: Int,
         maxFps: Int,
-        password: String
+        password: String,
+        allowTakeover: Boolean
     ): Int {
         require(hardwareAddress.size == 6) { "AirPlay hardware address must contain six bytes" }
         require(password.isEmpty() || password.length >= 4) { "AirPlay passwords need at least 4 characters" }
-        return nativeStart(deviceName, hardwareAddress, keyFile, language, displayWidth, displayHeight, maxFps, password)
+        return nativeStart(
+            deviceName, hardwareAddress, keyFile, language, displayWidth, displayHeight, maxFps, password, allowTakeover
+        )
     }
 
     fun stop() = nativeStop()
@@ -133,7 +137,7 @@ object AirPlayNative {
 
     @JvmStatic private external fun nativeStart(
         deviceName: String, hardwareAddress: ByteArray, keyFile: String, language: String,
-        displayWidth: Int, displayHeight: Int, maxFps: Int, password: String
+        displayWidth: Int, displayHeight: Int, maxFps: Int, password: String, allowTakeover: Boolean
     ): Int
     @JvmStatic private external fun nativeStop()
     @JvmStatic private external fun nativeIsRunning(): Boolean
