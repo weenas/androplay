@@ -12,7 +12,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
+import com.androplay.service.DacpClient
 import com.androplay.service.NowPlaying
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import kotlinx.coroutines.delay
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -43,7 +50,7 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
             return
         }
         if (state.streamInfo.isAudioOnly) {
-            AudioPlayback(nowPlaying = state.streamInfo.nowPlaying)
+            AudioPlayback(nowPlaying = state.streamInfo.nowPlaying, onCommand = viewModel::remoteControl)
             return
         }
         if (state.streamInfo.isMirroring) {
@@ -232,9 +239,12 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
     }
 }
 
-/** Audio streaming (e.g. a music app): cover art, track details and progress. */
+/**
+ * Audio streaming (e.g. a music app): cover art, track details and progress. The remote's
+ * OK and left/right keys control the sender; media keys reach it through the media session.
+ */
 @Composable
-fun AudioPlayback(nowPlaying: NowPlaying) {
+fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Unit) {
     val cover = remember(nowPlaying.coverArt) {
         nowPlaying.coverArt?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
     }
@@ -256,6 +266,19 @@ fun AudioPlayback(nowPlaying: NowPlaying) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .onKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                val command = when (event.key) {
+                    Key.DirectionCenter, Key.Enter -> DacpClient.Command.PLAY_PAUSE
+                    Key.DirectionLeft -> DacpClient.Command.PREVIOUS
+                    Key.DirectionRight -> DacpClient.Command.NEXT
+                    else -> null
+                } ?: return@onKeyEvent false
+                onCommand(command)
+                true
+            }
+            .initialFocus()
+            .focusable()
             .padding(horizontal = 96.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -300,6 +323,12 @@ fun AudioPlayback(nowPlaying: NowPlaying) {
                     Text(formatTime(nowPlaying.durationSec), fontSize = 18.sp, color = Color.Gray)
                 }
             }
+            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                (if (nowPlaying.playing) "OK: pause" else "OK: play") + "    ◀ ▶: previous / next",
+                fontSize = 16.sp,
+                color = Color(0xFF888888)
+            )
         }
     }
 }
