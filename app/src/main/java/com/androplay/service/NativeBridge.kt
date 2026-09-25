@@ -16,7 +16,7 @@ interface AudioInfoListener {
 
 class NativeBridge(
     private val onConnectionStarted: () -> Unit,
-    private val onVideoData: (ByteArray, Long) -> Unit,
+    private val onVideoData: (ByteArray, Long, Boolean) -> Unit,
     private val onAudioData: (ByteArray, Long) -> Unit,
     private val onPcmData: (ByteArray, Long) -> Unit,
     private val onAudioFlush: () -> Unit,
@@ -54,9 +54,9 @@ class NativeBridge(
         AirPlayNative.videoPlaybackListener = videoPlayback
         AirPlayNative.remoteControlListener = onRemoteControl
         AirPlayNative.setVideoSink(object : VideoSink {
-            override fun onVideoData(data: ByteArray, presentationTimeUs: Long) {
+            override fun onVideoData(data: ByteArray, presentationTimeUs: Long, isH265: Boolean) {
                 // Qualified: an unqualified call resolves to this override and recurses.
-                this@NativeBridge.onVideoData(data, presentationTimeUs)
+                this@NativeBridge.onVideoData(data, presentationTimeUs, isH265)
             }
 
             override fun onSessionEnd() {
@@ -90,7 +90,7 @@ class NativeBridge(
     fun start(
         deviceName: String,
         hardwareAddress: ByteArray,
-        displaySize: Pair<Int, Int>,
+        profile: MirroringProfile,
         maxFps: Int,
         password: String,
         allowTakeover: Boolean
@@ -100,7 +100,7 @@ class NativeBridge(
         return try {
             AirPlayNative.start(
                 deviceName, hardwareAddress, key, language,
-                displaySize.first, displaySize.second, maxFps, password, allowTakeover
+                profile.width, profile.height, maxFps, password, allowTakeover, profile.h265
             )
         } catch (e: UnsatisfiedLinkError) {
             Log.e(TAG, "Native start method is unavailable", e)

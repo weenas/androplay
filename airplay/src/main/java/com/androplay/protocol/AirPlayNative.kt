@@ -1,7 +1,8 @@
 package com.androplay.protocol
 
 interface VideoSink {
-    fun onVideoData(data: ByteArray, presentationTimeUs: Long)
+    /** One Annex B access unit; [isH265] tells H.264 and H.265 mirroring apart. */
+    fun onVideoData(data: ByteArray, presentationTimeUs: Long, isH265: Boolean)
     fun onSessionEnd()
 }
 
@@ -56,7 +57,8 @@ object AirPlayNative {
      * [language] (BCP 47, e.g. "zh-CN") picks audio and subtitle tracks in AirPlay video.
      * The display size and [maxFps] are what senders mirror to; a non-empty [password]
      * (at least 4 characters) must be entered by every sender. With [allowTakeover], a new
-     * sender replaces a connected one; otherwise it is refused (409).
+     * sender replaces a connected one; otherwise it is refused (409). [enableH265] offers
+     * H.265 mirroring (only when the TV decodes HEVC in hardware).
      */
     fun start(
         deviceName: String,
@@ -67,12 +69,14 @@ object AirPlayNative {
         displayHeight: Int,
         maxFps: Int,
         password: String,
-        allowTakeover: Boolean
+        allowTakeover: Boolean,
+        enableH265: Boolean
     ): Int {
         require(hardwareAddress.size == 6) { "AirPlay hardware address must contain six bytes" }
         require(password.isEmpty() || password.length >= 4) { "AirPlay passwords need at least 4 characters" }
         return nativeStart(
-            deviceName, hardwareAddress, keyFile, language, displayWidth, displayHeight, maxFps, password, allowTakeover
+            deviceName, hardwareAddress, keyFile, language, displayWidth, displayHeight, maxFps, password,
+            allowTakeover, enableH265
         )
     }
 
@@ -137,7 +141,8 @@ object AirPlayNative {
 
     @JvmStatic private external fun nativeStart(
         deviceName: String, hardwareAddress: ByteArray, keyFile: String, language: String,
-        displayWidth: Int, displayHeight: Int, maxFps: Int, password: String, allowTakeover: Boolean
+        displayWidth: Int, displayHeight: Int, maxFps: Int, password: String, allowTakeover: Boolean,
+        enableH265: Boolean
     ): Int
     @JvmStatic private external fun nativeStop()
     @JvmStatic private external fun nativeIsRunning(): Boolean

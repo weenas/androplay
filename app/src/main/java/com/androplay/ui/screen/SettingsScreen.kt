@@ -60,6 +60,19 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
             item { ChoiceSetting("Mirroring Resolution", settings.resolution, ReceiverSettings.RESOLUTIONS) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
             item { ChoiceSetting("Mirroring Frame Rate", settings.frameRate, ReceiverSettings.FRAME_RATES) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
+            item {
+                ChoiceSetting("Mirroring Codec", settings.videoCodec, ReceiverSettings.VIDEO_CODECS) {
+                    viewModel.updateSettings { current -> current.copy(videoCodec = it) }
+                }
+            }
+            item {
+                // Auto only offers H.265 when the TV has a hardware HEVC decoder.
+                Text(
+                    "This TV: ${viewModel.mirroringProfile(settings).label}",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+            }
             item { Spacer(modifier = Modifier.height(16.dp)) }
             item {
                 Text("Security", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)

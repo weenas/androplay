@@ -240,6 +240,8 @@ fun ReceiverInfo(viewModel: AirPlayViewModel) {
             }
         }
         InfoRow("IP address", network.ipv4.joinToString(", ").ifEmpty { "—" })
+        val mirroring = remember(settings) { viewModel.mirroringProfile(settings) }
+        InfoRow("Mirroring", mirroring.label)
         InfoRow("Password", if (settings.requirePassword) "Required" else "Not required")
         InfoRow("Second device", if (settings.allowTakeover) "Takes over" else "Refused")
         InfoRow("Version", viewModel.appVersion)

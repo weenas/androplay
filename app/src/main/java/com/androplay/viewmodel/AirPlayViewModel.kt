@@ -36,6 +36,9 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     fun canReadWifiName() = networkMonitor.canReadSsid()
 
+    /** How mirroring is offered with [settings] on this TV, e.g. "H.265, up to 4K". */
+    fun mirroringProfile(settings: ReceiverSettings) = manager.mirroringProfile(settings)
+
     /** Call after the location permission was granted, so the Wi-Fi name appears. */
     fun refreshNetwork() = networkMonitor.refresh()
 
