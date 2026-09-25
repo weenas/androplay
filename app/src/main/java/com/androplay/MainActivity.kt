@@ -2,6 +2,7 @@ package com.androplay
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -24,19 +25,25 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf("mirror") }
                 val viewModel: AirPlayViewModel = viewModel()
 
-                LaunchedEffect(viewModel.navigateToSettings.value) {
-                    if (viewModel.navigateToSettings.value == true) {
+                val navigateToSettings by viewModel.navigateToSettings.collectAsState()
+                val navigateBack by viewModel.navigateBack.collectAsState()
+
+                LaunchedEffect(navigateToSettings) {
+                    if (navigateToSettings) {
                         currentScreen = "settings"
                         viewModel.onNavigateToSettingsConsumed()
                     }
                 }
 
-                LaunchedEffect(viewModel.navigateBack.value) {
-                    if (viewModel.navigateBack.value == true) {
+                LaunchedEffect(navigateBack) {
+                    if (navigateBack) {
                         currentScreen = "mirror"
                         viewModel.onNavigateBackConsumed()
                     }
                 }
+
+                // The remote's Back key leaves sub-screens instead of closing the app.
+                BackHandler(enabled = currentScreen != "mirror") { currentScreen = "mirror" }
 
                 when (currentScreen) {
                     "mirror" -> MirrorScreen(viewModel = viewModel)
