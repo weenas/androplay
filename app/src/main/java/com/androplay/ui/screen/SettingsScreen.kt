@@ -48,6 +48,10 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 DeviceNameSetting(value = settings.deviceName) { name ->
                     viewModel.updateSettings { it.copy(deviceName = name) }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
+                SwitchSetting("Start when the TV turns on", settings.startOnBoot) { enabled ->
+                    viewModel.updateSettings { it.copy(startOnBoot = enabled) }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
             }
             item {
@@ -114,6 +118,21 @@ fun PinSetting(value: String, onSaved: (String) -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = { TextButton(onClick = { onSaved(editing) }, enabled = !invalid) { Text("Save") } }
     )
+}
+
+@Composable
+fun SwitchSetting(label: String, checked: Boolean, onChanged: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onChanged(!checked) }
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = Color.White, fontSize = 16.sp)
+        Switch(checked = checked, onCheckedChange = onChanged)
+    }
 }
 
 @Composable
