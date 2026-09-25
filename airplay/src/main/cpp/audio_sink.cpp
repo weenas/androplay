@@ -1,10 +1,10 @@
 #include "audio_sink.h"
 #include "video_sink.h"
 
-#include <android/log.h>
+#include "file_log.h"
 #include <mutex>
 
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AndroPlayAudioSink", __VA_ARGS__)
+#define LOGE(...) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayAudioSink", __VA_ARGS__)
 
 namespace {
 jobject g_sink = nullptr;

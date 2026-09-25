@@ -1,9 +1,9 @@
 #include "video_sink.h"
 
-#include <android/log.h>
+#include "file_log.h"
 #include <mutex>
 
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AndroPlayVideoSink", __VA_ARGS__)
+#define LOGE(...) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayVideoSink", __VA_ARGS__)
 
 namespace {
 JavaVM *g_vm = nullptr;

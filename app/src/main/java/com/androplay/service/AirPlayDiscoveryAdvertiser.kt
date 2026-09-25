@@ -6,7 +6,7 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.androplay.util.Log
 import java.io.IOException
 import java.net.ServerSocket
 import java.security.SecureRandom

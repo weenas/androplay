@@ -8,7 +8,7 @@ import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
+import com.androplay.util.Log
 import java.nio.ByteBuffer
 import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicInteger

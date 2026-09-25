@@ -15,7 +15,7 @@
 #include "global.h"
 #include "utils.h"
 
-#include <android/log.h>
+#include "file_log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -148,6 +148,6 @@ const char *dnssd_get_airplay_txt(dnssd_t *dnssd_public, int *length) {
 }
 
 void dnssd_error_text(int *error, const char *appname) {
-    __android_log_print(ANDROID_LOG_ERROR, appname ? appname : "dnssd",
+    androplay_logf(ANDROID_LOG_ERROR, appname ? appname : "dnssd",
                         "DNS-SD TXT record error %d", error ? *error : 0);
 }

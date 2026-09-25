@@ -1,5 +1,5 @@
 #include <jni.h>
-#include <android/log.h>
+#include "file_log.h"
 
 #include <atomic>
 #include <cstdint>
@@ -20,8 +20,8 @@ extern "C" {
 #include "stream.h"
 }
 
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "AndroPlayProtocol", __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "AndroPlayProtocol", __VA_ARGS__)
+#define LOGI(...) androplay_logf(ANDROID_LOG_INFO, "AndroPlayProtocol", __VA_ARGS__)
+#define LOGE(...) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayProtocol", __VA_ARGS__)
 
 namespace {
 /* AirPlay compression type (ct) reported by audio_get_format and in each audio packet. */
@@ -295,7 +295,7 @@ void logCallback(void *, int level, const char *message) {
     const int priority = level <= LOGGER_ERR ? ANDROID_LOG_ERROR :
         (level <= LOGGER_WARNING ? ANDROID_LOG_WARN :
         (level <= LOGGER_INFO ? ANDROID_LOG_INFO : ANDROID_LOG_DEBUG));
-    __android_log_print(priority, "UxPlay", "%s", message ? message : "");
+    androplay_logf(priority, "UxPlay", "%s", message ? message : "");
 }
 
 /* Splits a DNS TXT record (length-prefixed entries) into "key=value" Java strings. */
@@ -498,6 +498,13 @@ Java_com_androplay_protocol_AirPlayNative_nativeRaopTxtRecord(JNIEnv *env, jclas
     int length = 0;
     const char *txt = g_dnssd ? dnssd_get_raop_txt(g_dnssd, &length) : nullptr;
     return txtToStringArray(env, txt, length);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_androplay_protocol_AirPlayNative_nativeSetLogFile(JNIEnv *env, jclass, jstring path) {
+    const char *file = path ? env->GetStringUTFChars(path, nullptr) : nullptr;
+    androplay_log_open(file);
+    if (file) env->ReleaseStringUTFChars(path, file);
 }
 
 extern "C" JNIEXPORT void JNICALL

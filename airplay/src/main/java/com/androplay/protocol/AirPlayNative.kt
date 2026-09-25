@@ -75,6 +75,9 @@ object AirPlayNative {
     fun stop() = nativeStop()
     fun isRunning(): Boolean = nativeIsRunning()
     fun setVideoSink(sink: VideoSink?) = nativeSetVideoSink(sink)
+
+    /** Also appends native and protocol logs to [path] (null stops); see file_log.h. */
+    fun setLogFile(path: String?) = nativeSetLogFile(path)
     fun setAudioSink(sink: AudioSink?) = nativeSetAudioSink(sink)
 
     /** `_airplay._tcp` TXT entries built by the running protocol core (empty when stopped). */
@@ -137,6 +140,7 @@ object AirPlayNative {
     @JvmStatic private external fun nativeAirPlayTxtRecord(): Array<String>
     @JvmStatic private external fun nativeRaopTxtRecord(): Array<String>
     @JvmStatic private external fun nativeSetVideoSink(sink: VideoSink?)
+    @JvmStatic private external fun nativeSetLogFile(path: String?)
     @JvmStatic private external fun nativeSetAudioSink(sink: AudioSink?)
 }
 

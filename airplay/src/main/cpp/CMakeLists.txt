@@ -97,6 +97,7 @@ add_library(androplay_protocol SHARED
     video_sink.cpp
     audio_sink.cpp
     alac_decoder.cpp
+    file_log.cpp
 )
 target_include_directories(androplay_protocol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(androplay_protocol PRIVATE uxplay alac log android)

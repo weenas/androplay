@@ -1,7 +1,7 @@
 package com.androplay.service
 
 import android.content.Context
-import android.util.Log
+import com.androplay.util.Log
 import android.view.Surface
 import androidx.media3.exoplayer.ExoPlayer
 import com.androplay.protocol.VideoPlaybackListener
@@ -97,6 +97,7 @@ class AirPlayManager private constructor(context: Context) {
             currentState == AirPlayConnectionState.AdvertisingOnly
 
     init {
+        Log.init(context)
         nativeBridge.initialize(context)
     }
 
