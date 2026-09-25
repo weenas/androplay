@@ -7,6 +7,13 @@ import com.androplay.protocol.AudioSink
 import com.androplay.protocol.VideoPlaybackListener
 import com.androplay.protocol.VideoSink
 
+/** Now-playing callbacks for audio streaming; called on protocol threads. */
+interface AudioInfoListener {
+    fun onMetadata(dmap: ByteArray)
+    fun onCoverArt(image: ByteArray)
+    fun onProgress(positionSec: Double, durationSec: Double)
+}
+
 class NativeBridge(
     private val onConnectionStarted: () -> Unit,
     private val onVideoData: (ByteArray, Long) -> Unit,
@@ -14,6 +21,7 @@ class NativeBridge(
     private val onPcmData: (ByteArray, Long) -> Unit,
     private val onAudioFlush: () -> Unit,
     private val onVolume: (Float) -> Unit,
+    private val audioInfo: AudioInfoListener,
     private val videoPlayback: VideoPlaybackListener,
     private val onSessionEnd: () -> Unit
 ) {
@@ -69,6 +77,11 @@ class NativeBridge(
             override fun onVolume(db: Float) {
                 this@NativeBridge.onVolume.invoke(db)
             }
+
+            override fun onMetadata(dmap: ByteArray) = audioInfo.onMetadata(dmap)
+            override fun onCoverArt(image: ByteArray) = audioInfo.onCoverArt(image)
+            override fun onProgress(positionSec: Double, durationSec: Double) =
+                audioInfo.onProgress(positionSec, durationSec)
         })
     }
 

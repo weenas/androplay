@@ -26,5 +26,8 @@ data class StreamInfo(
     val frameWidth: Int = 0,
     val frameHeight: Int = 0,
     /** AirPlay video (the sender streams a URL, e.g. from the YouTube app) rather than mirroring. */
-    val isVideoPlayback: Boolean = false
+    val isVideoPlayback: Boolean = false,
+    /** Audio streaming without video (e.g. a music app); [nowPlaying] describes it. */
+    val isAudioOnly: Boolean = false,
+    val nowPlaying: NowPlaying = NowPlaying()
 )

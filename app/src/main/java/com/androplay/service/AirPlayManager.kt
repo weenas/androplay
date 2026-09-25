@@ -29,12 +29,32 @@ class AirPlayManager private constructor(context: Context) {
         onConnectionStarted = ::onNativeConnectionStarted,
         onVideoData = { data, pts -> onNativeVideoData(data, pts, false) },
         onAudioData = { data, _ -> audioRenderer.render(data) },
-        onPcmData = { data, _ -> audioRenderer.renderPcm(data) },
-        onAudioFlush = { audioRenderer.flush() },
+        onPcmData = { data, _ -> onPcmAudio(data) },
+        onAudioFlush = {
+            audioRenderer.flush()
+            updateNowPlaying { it.paused() }
+        },
         onVolume = { db ->
             val gain = AirPlayVolume.toGain(db)
             audioRenderer.setVolume(gain)
             hlsPlayer.setVolume(gain)
+        },
+        audioInfo = object : AudioInfoListener {
+            override fun onMetadata(dmap: ByteArray) {
+                val track = DmapMetadata.parse(dmap) ?: return
+                updateNowPlaying { it.copy(title = track.title, artist = track.artist, album = track.album) }
+            }
+
+            override fun onCoverArt(image: ByteArray) =
+                updateNowPlaying { it.copy(coverArt = image.takeIf { bytes -> bytes.isNotEmpty() }) }
+
+            override fun onProgress(positionSec: Double, durationSec: Double) = updateNowPlaying {
+                it.copy(
+                    positionSec = positionSec,
+                    durationSec = durationSec,
+                    positionAtMs = android.os.SystemClock.elapsedRealtime()
+                )
+            }
         },
         videoPlayback = object : VideoPlaybackListener {
             override fun onPlay(url: String, startPositionSec: Float) = onVideoPlay(url, startPositionSec)
@@ -49,6 +69,7 @@ class AirPlayManager private constructor(context: Context) {
     private val videoRenderer = VideoRenderer(onFrameSizeChanged = ::onFrameSizeChanged)
     private val audioRenderer = AudioRenderer()
     private val hlsPlayer = HlsPlayer(context, onFinished = ::onVideoStopped)
+    @Volatile private var nowPlaying = NowPlaying()
 
     /** The AirPlay video player while one is active. Main thread only. */
     val videoPlayer: ExoPlayer? get() = hlsPlayer.player
@@ -140,6 +161,7 @@ class AirPlayManager private constructor(context: Context) {
         videoRenderer.stop()
         audioRenderer.stop()
         hlsPlayer.stop()
+        nowPlaying = NowPlaying()
         currentStreamInfo = StreamInfo()
         currentState = AirPlayConnectionState.Discovering
     }
@@ -170,6 +192,29 @@ class AirPlayManager private constructor(context: Context) {
             currentStreamInfo = StreamInfo(isVideoPlayback = true)
             currentError = null
             currentState = AirPlayConnectionState.Streaming
+        }
+    }
+
+    /**
+     * Audio streaming (music apps) has no picture, so the first PCM frame switches the screen
+     * from "Connecting" to what is playing.
+     */
+    private fun onPcmAudio(pcm: ByteArray) {
+        audioRenderer.renderPcm(pcm)
+        if (!nowPlaying.playing) updateNowPlaying { it.resumed() }
+        if (currentState == AirPlayConnectionState.Connecting) {
+            currentStreamInfo = StreamInfo(isAudioOnly = true, nowPlaying = nowPlaying)
+            currentState = AirPlayConnectionState.Streaming
+        }
+    }
+
+    /** Metadata can arrive before the audio does, so it is kept until the screen shows it. */
+    @Synchronized
+    private fun updateNowPlaying(transform: (NowPlaying) -> NowPlaying) {
+        nowPlaying = transform(nowPlaying)
+        if (currentStreamInfo.isAudioOnly) {
+            currentStreamInfo = currentStreamInfo.copy(nowPlaying = nowPlaying)
+            notifyStateChange(currentState)
         }
     }
 
