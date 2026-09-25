@@ -1,0 +1,6 @@
+[submodule "third_party/RPiPlay"]
+	path = third_party/RPiPlay
+	url = https://github.com/FD-/RPiPlay.git
+[submodule "third_party/libplist"]
+	path = third_party/libplist
+	url = https://github.com/libimobiledevice/libplist.git

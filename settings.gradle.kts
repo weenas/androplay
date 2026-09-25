@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "AndroPlay"
-include(":app")
+include(":app", ":airplay")

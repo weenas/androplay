@@ -1,10 +1,10 @@
 # AndroPlay - AirPlay Receiver for Android TV
 
-An open-source Android TV project for receiving AirPlay streams. The Android app and receiver lifecycle are under development; streaming is not available in the current build.
+An open-source Android TV project for receiving AirPlay streams. The receiver is under active development and now includes an initial AirPlay mirroring protocol path.
 
 ## What is AndroPlay?
 
-AndroPlay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The planned protocol integration is [UxPlay](https://github.com/FDH2/UxPlay) (GPL-3.0), but it is not included or wired up yet.
+AndroPlay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The current protocol module embeds the legacy-mirroring core from [RPiPlay](https://github.com/FD-/RPiPlay), with Android mDNS advertising and MediaCodec output.
 
 ## Planned Features
 
@@ -22,11 +22,11 @@ AndroPlay aims to receive screen mirroring, audio, and video streams from AirPla
 
 ## Current Status
 
-The Android TV UI, persistent receiver settings, foreground service start/stop flow, and an Android MediaCodec video rendering path build successfully. The renderer accepts complete Annex B H.264/H.265 access units and displays them on a SurfaceView when a protocol backend supplies frames. Pressing **Start** now publishes AirPlay and RAOP mDNS records on the local network as a discovery-only preview. The native AirPlay protocol implementation is not packaged yet, so selecting AndroPlay from a sender cannot establish a stream.
+The Android TV UI, persistent receiver settings, foreground service lifecycle, mDNS discovery, native AirPlay listener, JNI bridge, and Android MediaCodec video path build successfully. Pressing **Start** now starts the protocol listener and advertises its real port. The initial core supports legacy H.264 mirroring; audio output, H.265, in-app video casting, and broad sender compatibility are not complete. Device-level streaming validation is still in progress.
 
 ## Planned Technical Implementation
 
-- **AirPlay Protocol**: UxPlay C library handles RAOP/RTSP/RTP protocol stack
+- **AirPlay Protocol**: RPiPlay currently handles the legacy RAOP/RTSP/RTP protocol stack
 - **JNI Bridge**: Native C code interfaces with Android Java/Kotlin layer
 - **Video Decoding**: Android MediaCodec (hardware accelerated)
 - **Audio Output**: AudioTrack for low-latency audio
@@ -36,15 +36,19 @@ The Android TV UI, persistent receiver settings, foreground service start/stop f
 ## Building from Source
 
 ```bash
-# Clone
-git clone git@github.com:weenas/androplay.git
+# Clone protocol dependencies with the repository
+git clone --recurse-submodules git@github.com:weenas/androplay.git
 cd AndroPlay
 
-# Build the Android UI and service shell (requires Android SDK 35)
+# Build (requires JDK 17, Android SDK 35, NDK 27.0.12077973, and CMake 3.22.1)
 ./gradlew assembleDebug
 ```
 
-The native CMake target is disabled by default. `-PenableNativeBuild=true` enables the current JNI skeleton and requires a complete Android NDK and CMake installation; it does not yet provide a working AirPlay receiver. The repository does not currently contain a UxPlay submodule. Upstream UxPlay builds a static `airplay` protocol library and uses GStreamer renderers, so Android integration requires porting that library and implementing Android video/audio renderers.
+For an existing clone, initialize the pinned dependencies before building:
+
+```bash
+git submodule update --init --recursive
+```
 
 ## Project Structure
 
@@ -61,7 +65,10 @@ AndroPlay/
 │   │   ├── cpp/              # C++ native code (CMake)
 │   │   └── res/              # Android resources
 │   └── build.gradle.kts
+├── airplay/                # Android library, JNI bridge, and native protocol build
+├── third_party/            # Pinned RPiPlay and libplist submodules
 └── README.md
+```
 
 ## License
 
@@ -70,7 +77,9 @@ See the LICENSE file for details.
 
 ## Credits
 
-- [UxPlay](https://github.com/FDH2/UxPlay) - AirPlay protocol implementation (GPL-3.0)
+- [RPiPlay](https://github.com/FD-/RPiPlay) - legacy AirPlay mirroring protocol core
+- [libplist](https://github.com/libimobiledevice/libplist) - binary plist support
+- [UxPlay](https://github.com/FDH2/UxPlay) - reference for newer AirPlay receiver behavior
 - Android Open Source Project - Base platform
 
 ## Disclaimer

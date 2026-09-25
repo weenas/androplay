@@ -8,6 +8,8 @@ class AirPlayManager private constructor(context: Context) {
 
     companion object {
         private const val TAG = "AirPlayManager"
+        private const val DEFAULT_VIDEO_WIDTH = 1920
+        private const val DEFAULT_VIDEO_HEIGHT = 1080
 
         @Volatile
         private var instance: AirPlayManager? = null
@@ -21,7 +23,11 @@ class AirPlayManager private constructor(context: Context) {
         }
     }
 
-    private val nativeBridge = NativeBridge()
+    private val nativeBridge = NativeBridge(
+        onConnectionStarted = ::onNativeConnectionStarted,
+        onVideoData = { data, pts -> onNativeVideoData(data, pts, false) },
+        onSessionEnd = ::onNativeStreamStopped
+    )
     private val discoveryAdvertiser = AirPlayDiscoveryAdvertiser(context)
     private val videoRenderer = VideoRenderer()
     private val settingsStore = ReceiverSettingsStore(context)
@@ -48,16 +54,19 @@ class AirPlayManager private constructor(context: Context) {
     fun start(settings: ReceiverSettings = settingsStore.load()): Boolean {
         Log.d(TAG, "Starting AirPlay server: ${settings.deviceName}")
         currentError = null
-        if (nativeBridge.start(settings.deviceName)) {
-            currentState = AirPlayConnectionState.Discovering
-            return true
-        }
+        val protocolPort = nativeBridge.start(settings.deviceName, discoveryAdvertiser.hardwareAddress())
         if (!discoveryAdvertiser.start(
                 settings.deviceName,
+                protocolPort.takeIf { it > 0 },
+                records = nativeBridge.discoveryRecords() ?: DiscoveryRecords.FALLBACK,
                 onReady = {
                     Log.i(TAG, "AirPlay discovery records are visible on the local network")
                     if (currentState == AirPlayConnectionState.Registering) {
-                        currentState = AirPlayConnectionState.AdvertisingOnly
+                        currentState = if (protocolPort > 0) {
+                            AirPlayConnectionState.Discovering
+                        } else {
+                            AirPlayConnectionState.AdvertisingOnly
+                        }
                     }
                 },
                 onError = ::onNativeError
@@ -109,6 +118,11 @@ class AirPlayManager private constructor(context: Context) {
         currentState = AirPlayConnectionState.Discovering
     }
 
+    private fun onNativeConnectionStarted() {
+        currentError = null
+        currentState = AirPlayConnectionState.Connecting
+    }
+
     fun onNativeError(error: String) {
         discoveryAdvertiser.stop()
         videoRenderer.stop()
@@ -120,11 +134,23 @@ class AirPlayManager private constructor(context: Context) {
         videoRenderer.setSurface(surface)
     }
 
-    /** UxPlay's video callback will forward complete Annex B frames here once its core is linked. */
+    /** The protocol core forwards complete Annex B frames here for MediaCodec decoding. */
     fun onNativeVideoData(data: ByteArray, presentationTimeUs: Long, isH265: Boolean) {
-        val stream = currentStreamInfo
-        if (!stream.isMirroring || stream.videoWidth <= 0 || stream.videoHeight <= 0) return
+        var stream = currentStreamInfo
+        if (!stream.isMirroring) {
+            stream = StreamInfo(
+                videoWidth = DEFAULT_VIDEO_WIDTH,
+                videoHeight = DEFAULT_VIDEO_HEIGHT,
+                videoFps = 60,
+                audioSampleRate = 0,
+                audioChannels = 0,
+                isMirroring = true
+            )
+            currentStreamInfo = stream
+            currentState = AirPlayConnectionState.Streaming
+        }
         videoRenderer.configure(stream.videoWidth, stream.videoHeight, isH265)
         videoRenderer.render(data, presentationTimeUs)
     }
+
 }
