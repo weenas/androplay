@@ -39,6 +39,7 @@ class AirPlayManager private constructor(context: Context) {
             audioRenderer.setVolume(gain)
             hlsPlayer.setVolume(gain)
         },
+        onRemoteControl = { dacpId, activeRemote -> dacp.setSender(dacpId, activeRemote) },
         audioInfo = object : AudioInfoListener {
             override fun onMetadata(dmap: ByteArray) {
                 val track = DmapMetadata.parse(dmap) ?: return
@@ -73,6 +74,8 @@ class AirPlayManager private constructor(context: Context) {
         get() = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY).mode
     private val hlsPlayer = HlsPlayer(context, onFinished = ::onVideoStopped)
     @Volatile private var nowPlaying = NowPlaying()
+    private val dacp = DacpClient(context)
+    private val mediaSession = NowPlayingSession(context, onCommand = ::remoteControl)
 
     /** The AirPlay video player while one is active. Main thread only. */
     val videoPlayer: ExoPlayer? get() = hlsPlayer.player
@@ -146,6 +149,9 @@ class AirPlayManager private constructor(context: Context) {
         videoRenderer.stop()
         audioRenderer.stop()
         hlsPlayer.stop()
+        nowPlaying = NowPlaying()
+        dacp.clear()
+        mediaSession.update(null)
         currentStreamInfo = StreamInfo()
         currentError = null
         currentState = AirPlayConnectionState.Idle
@@ -179,6 +185,8 @@ class AirPlayManager private constructor(context: Context) {
         audioRenderer.stop()
         hlsPlayer.stop()
         nowPlaying = NowPlaying()
+        dacp.clear()
+        mediaSession.update(null)
         currentStreamInfo = StreamInfo()
         currentState = AirPlayConnectionState.Discovering
     }
@@ -222,7 +230,14 @@ class AirPlayManager private constructor(context: Context) {
         if (currentState == AirPlayConnectionState.Connecting) {
             currentStreamInfo = StreamInfo(isAudioOnly = true, nowPlaying = nowPlaying)
             currentState = AirPlayConnectionState.Streaming
+            mediaSession.update(nowPlaying)
         }
+    }
+
+    /** Controls the sender's playback (music apps), from the TV remote or the screen. */
+    fun remoteControl(command: DacpClient.Command) {
+        Log.d(TAG, "Remote control: ${command.path}")
+        dacp.send(command)
     }
 
     /** Metadata can arrive before the audio does, so it is kept until the screen shows it. */
@@ -232,6 +247,7 @@ class AirPlayManager private constructor(context: Context) {
         if (currentStreamInfo.isAudioOnly) {
             currentStreamInfo = currentStreamInfo.copy(nowPlaying = nowPlaying)
             notifyStateChange(currentState)
+            mediaSession.update(nowPlaying)
         }
     }
 

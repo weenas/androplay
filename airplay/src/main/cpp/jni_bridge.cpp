@@ -41,6 +41,7 @@ jmethodID g_on_video_scrub = nullptr;
 jmethodID g_on_video_rate = nullptr;
 jmethodID g_on_video_stop = nullptr;
 jmethodID g_playback_info = nullptr;
+jmethodID g_on_remote_control = nullptr;
 /* raop keeps a pointer to this for HLS audio/subtitle selection; it must outlive g_raop. */
 std::string g_lang_system;
 /* Client-access password senders must enter; empty = open access. Read on protocol threads. */
@@ -273,7 +274,21 @@ const char *passwd(void *, int *len) {
     *len = static_cast<int>(g_password.size());
     return g_password.c_str();
 }
-void exportDacp(void *, const char *, const char *) {}
+/*
+ * The sender's DACP identity: its remote-control server is advertised over mDNS as
+ * "iTunes_Ctrl_<dacp_id>" and accepts commands carrying "Active-Remote: <active_remote>".
+ */
+void exportDacp(void *, const char *active_remote, const char *dacp_id) {
+    if (!active_remote || !dacp_id) return;
+    LOGI("Sender remote control: DACP-ID %s", dacp_id);
+    JNIEnv *env = currentEnv();
+    if (!env) return;
+    jstring id = env->NewStringUTF(dacp_id);
+    jstring remote = env->NewStringUTF(active_remote);
+    callStatic(g_on_remote_control, id, remote);
+    env->DeleteLocalRef(id);
+    env->DeleteLocalRef(remote);
+}
 int videoSetCodec(void *, video_codec_t) { return 0; }
 
 void logCallback(void *, int level, const char *message) {
@@ -508,8 +523,9 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *) {
     g_on_video_rate = env->GetStaticMethodID(local, "onVideoRate", "(F)V");
     g_on_video_stop = env->GetStaticMethodID(local, "onVideoStop", "()V");
     g_playback_info = env->GetStaticMethodID(local, "playbackInfo", "()[D");
+    g_on_remote_control = env->GetStaticMethodID(local, "onRemoteControl", "(Ljava/lang/String;Ljava/lang/String;)V");
     if (!g_on_connection_started || !g_on_video_play || !g_on_video_scrub || !g_on_video_rate ||
-        !g_on_video_stop || !g_playback_info) return JNI_ERR;
+        !g_on_video_stop || !g_playback_info || !g_on_remote_control) return JNI_ERR;
     env->DeleteLocalRef(local);
     return JNI_VERSION_1_6;
 }

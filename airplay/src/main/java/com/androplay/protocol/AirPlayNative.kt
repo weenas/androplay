@@ -47,6 +47,8 @@ object AirPlayNative {
 
     var connectionListener: (() -> Unit)? = null
     var videoPlaybackListener: VideoPlaybackListener? = null
+    /** (dacpId, activeRemote) of a sender that accepts remote-control commands. */
+    var remoteControlListener: ((String, String) -> Unit)? = null
 
     /**
      * Starts the protocol server and returns its port, or 0 on failure. [keyFile] stores the
@@ -110,6 +112,11 @@ object AirPlayNative {
     @JvmStatic
     fun onVideoStop() {
         videoPlaybackListener?.onStop()
+    }
+
+    @JvmStatic
+    fun onRemoteControl(dacpId: String, activeRemote: String) {
+        remoteControlListener?.invoke(dacpId, activeRemote)
     }
 
     @JvmStatic
