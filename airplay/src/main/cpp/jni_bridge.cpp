@@ -2,11 +2,13 @@
 #include "file_log.h"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "alac_decoder.h"
@@ -17,6 +19,7 @@ extern "C" {
 #include "dnssd.h"
 #include "logger.h"
 #include "raop.h"
+#include "raop_ext.h"
 #include "stream.h"
 }
 
@@ -110,11 +113,40 @@ void connectionStarted(void *) {
     callStatic(g_on_connection_started);
 }
 
+void onVideoStop(void *);
+
+/*
+ * Runs shortly after a connection closed, once UxPlay has taken it out of its table: if the
+ * sender dropped its AirPlay video connection but left the reverse one open, the video
+ * session is over. Closing the reverse connection then lets the session end normally.
+ */
+void dropOrphanedReverseSoon() {
+    std::thread([] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        bool ended = false;
+        {
+            std::lock_guard<std::mutex> lock(g_server_mutex);
+            if (g_raop && raop_ext_drop_orphaned_reverse(g_raop)) {
+                LOGI("Sender left without closing its video session; ending it");
+                raop_destroy_airplay_video(g_raop, -1);
+                ended = true;
+            }
+        }
+        if (ended) {
+            onVideoStop(nullptr);
+            if (JavaVM *vm = androplay::jvm()) vm->DetachCurrentThread();
+        }
+    }).detach();
+}
+
 void connectionStopped(void *) {
     // Never below zero: a connection opened before the last restart may close afterwards.
     int open = g_open_connections.load();
     while (open > 0 && !g_open_connections.compare_exchange_weak(open, open - 1)) {}
-    if (open != 1) return;
+    if (open != 1) {
+        if (open > 1) dropOrphanedReverseSoon();
+        return;
+    }
     LOGI("AirPlay sender disconnected");
     androplay::dispatchSessionEnd();
 }
