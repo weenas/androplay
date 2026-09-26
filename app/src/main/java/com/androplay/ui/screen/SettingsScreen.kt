@@ -1,7 +1,6 @@
 package com.androplay.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
@@ -17,28 +16,37 @@ import androidx.compose.ui.res.stringResource
 import com.androplay.R
 import com.androplay.ui.mirroringLabel
 import com.androplay.ui.settingValueLabel
+import com.androplay.ui.AppBackground
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import com.androplay.viewmodel.AirPlayViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
     val settings by viewModel.settings.collectAsState()
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.settings)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Text("←") }
-                }
-            )
-        }
-    ) { padding ->
+    // Starts on the row below the device name: focusing the text field opens the keyboard.
+    val firstChoice = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { firstChoice.requestFocus() } }
+    // Same look as the home screen: no app bar, a title with a button beside it.
+    AppBackground {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 48.dp, vertical = 24.dp)
         ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.settings),
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.weight(1f)
+                    )
+                    HomeButton(stringResource(R.string.action_back), onClick = onBack)
+                }
+            }
             // Connection settings change what senders see, so the receiver restarts for them;
             // playback settings apply live and are also in the quick menu during playback.
             item {
@@ -48,7 +56,12 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            item { ChoiceSetting(stringResource(R.string.setting_resolution), settings.resolution, ReceiverSettings.RESOLUTIONS) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
+            item {
+            ChoiceSetting(
+                stringResource(R.string.setting_resolution), settings.resolution, ReceiverSettings.RESOLUTIONS,
+                modifier = Modifier.focusRequester(firstChoice)
+            ) { viewModel.updateSettings { current -> current.copy(resolution = it) } }
+        }
             item { ChoiceSetting(stringResource(R.string.setting_frame_rate), settings.frameRate, ReceiverSettings.FRAME_RATES) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
             item {
                 ChoiceSetting(stringResource(R.string.setting_codec), settings.videoCodec, ReceiverSettings.VIDEO_CODECS) {
@@ -119,13 +132,19 @@ fun ChoiceSetting(
     choices: List<String>,
     /** How a stored value is shown, in the TV's language. */
     display: @Composable (String) -> String = { settingValueLabel(it) },
+    modifier: Modifier = Modifier,
     onSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
-        SettingsRow(label, display(value), Modifier.fillMaxWidth().padding(vertical = 12.dp).clickable { expanded = true })
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            choices.forEach { choice -> DropdownMenuItem(text = { Text(display(choice)) }, onClick = { onSelected(choice); expanded = false }) }
+    SettingLine(label) {
+        // The menu is anchored to the button, so it opens beside the value on the right.
+        Box {
+            HomeButton("${display(value)}  ▾", modifier) { expanded = true }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                choices.forEach { choice ->
+                    DropdownMenuItem(text = { Text(display(choice), fontSize = 18.sp) }, onClick = { onSelected(choice); expanded = false })
+                }
+            }
         }
     }
 }
@@ -203,26 +222,19 @@ fun PinSetting(value: String, onSaved: (String) -> Unit) {
 
 @Composable
 fun SwitchSetting(label: String, checked: Boolean, onChanged: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onChanged(!checked) }
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, color = Color.White, fontSize = 16.sp)
-        Switch(checked = checked, onCheckedChange = onChanged)
+    SettingLine(label) {
+        HomeButton(stringResource(if (checked) R.string.on else R.string.off), muted = !checked) { onChanged(!checked) }
     }
 }
 
+/** One setting: its name on the left, its control (a home-style button) on the right. */
 @Composable
-fun SettingsRow(label: String, value: String, modifier: Modifier = Modifier) {
+private fun SettingLine(label: String, control: @Composable () -> Unit) {
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = Color.White, fontSize = 16.sp)
-        Text(value, color = Color.Gray, fontSize = 16.sp)
+        Text(label, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f))
+        control()
     }
 }

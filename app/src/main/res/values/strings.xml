@@ -7,6 +7,7 @@
     <string name="action_stop">Stop</string>
     <string name="action_retry">Retry</string>
     <string name="action_save">Save</string>
+    <string name="action_back">Back</string>
     <string name="on">On</string>
     <string name="off">Off</string>
     <string name="auto">Auto</string>
@@ -17,7 +18,7 @@
     <string name="waiting_how">On iPhone or iPad: Control Center → Screen Mirroring → %1$s. In apps, tap the AirPlay icon.</string>
     <string name="waiting_how_dlna">On iPhone or iPad: Control Center → Screen Mirroring → %1$s. In apps, tap the AirPlay icon, or the app\'s own cast button (e.g. Bilibili).</string>
     <string name="waiting_same_network">Your device must be on the same network as the TV.</string>
-    <string name="publishing">Publishing AndroPlay on the local network…</string>
+    <string name="starting">Starting…</string>
     <string name="advertising_only_title">AndroPlay is visible on the local network</string>
     <string name="advertising_only_detail">Discovery preview only — AirPlay streaming is not available yet.</string>
     <string name="connecting">Connecting…</string>
