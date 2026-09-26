@@ -526,8 +526,10 @@ fun AudioPlayback(
         }
         Spacer(modifier = Modifier.width(64.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(nowPlaying.title ?: stringResource(R.string.airplay_audio), fontSize = 40.sp, fontWeight = FontWeight.Bold,
-                color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // An explicit line height: the default text style's is 24 sp, so a long title wrapped
+            // onto a second line drawn over the first.
+            Text(nowPlaying.title ?: stringResource(R.string.airplay_audio), fontSize = 36.sp, lineHeight = 46.sp,
+                fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
             nowPlaying.artist?.let {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(it, fontSize = 26.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis)
