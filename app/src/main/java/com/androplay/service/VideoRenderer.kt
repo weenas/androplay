@@ -1,6 +1,8 @@
 package com.androplay.service
 
+import android.content.Context
 import android.media.MediaCodec
+import androidx.media3.exoplayer.video.PlaceholderSurface
 import android.media.MediaFormat
 import android.os.Handler
 import android.os.HandlerThread
@@ -18,10 +20,20 @@ import java.util.ArrayDeque
  * RPiPlay delivers SPS/PPS as a separate buffer only once per session, so that codec config is
  * cached and replayed whenever the decoder is (re)created, e.g. when the Surface appears late.
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class VideoRenderer(
+    context: Context,
     /** Called on the decoder thread with the visible picture size whenever it changes. */
     private val onFrameSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 ) {
+    private val appContext = context.applicationContext
+    /**
+     * Decodes into nothing while the app is in the background (its Surface is gone), so the
+     * decoder keeps its state and the picture is back at once on return: mirroring senders
+     * send key frames rarely, and a new decoder would wait for one.
+     */
+    private var placeholder: PlaceholderSurface? = null
+
     private val lock = Any()
     private val handler = Handler(HandlerThread("AndroPlay-video").apply { start() }.looper)
 
@@ -54,10 +66,12 @@ class VideoRenderer(
             if (surface === value) return
             surface = value
             val decoder = codec
-            if (decoder != null && value != null && value.isValid) {
+            val output = if (value != null && value.isValid) value else placeholderLocked()
+            if (decoder != null && output != null) {
                 // Swap outputs without tearing down the decoder, so no new IDR frame is needed.
                 try {
-                    decoder.setOutputSurface(value)
+                    decoder.setOutputSurface(output)
+                    if (output === value) releasePlaceholderLocked()
                     return
                 } catch (error: Exception) {
                     Log.w(TAG, "setOutputSurface failed, recreating decoder", error)
@@ -65,6 +79,7 @@ class VideoRenderer(
             }
             releaseCodecLocked()
             startCodecIfReadyLocked()
+            releasePlaceholderLocked()
         }
     }
 
@@ -143,6 +158,7 @@ class VideoRenderer(
     fun stop() {
         synchronized(lock) {
             releaseCodecLocked()
+            releasePlaceholderLocked()
             width = 0
             height = 0
             codecConfig = null
@@ -214,6 +230,16 @@ class VideoRenderer(
             awaitingKeyFrame = true
             decoder.release()
         }
+    }
+
+    private fun placeholderLocked(): Surface? = placeholder ?: runCatching {
+        PlaceholderSurface.newInstanceV17(appContext, false)
+    }.onFailure { Log.w(TAG, "No placeholder surface; the decoder restarts on return", it) }
+        .getOrNull()?.also { placeholder = it }
+
+    private fun releasePlaceholderLocked() {
+        placeholder?.release()
+        placeholder = null
     }
 
     private fun releaseCodecLocked() {
