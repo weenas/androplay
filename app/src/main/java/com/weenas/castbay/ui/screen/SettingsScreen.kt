@@ -39,7 +39,7 @@ import com.weenas.castbay.viewmodel.AirPlayViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
+fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit, onAbout: () -> Unit = {}) {
     val settings by viewModel.settings.collectAsState()
     // Starts on the row below the device name: focusing the text field opens the keyboard.
     val firstChoice = remember { FocusRequester() }
@@ -127,6 +127,9 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 SectionHeader(stringResource(R.string.section_system), null)
                 SwitchSetting(stringResource(R.string.setting_start_on_boot), settings.startOnBoot) { enabled ->
                     viewModel.updateSettings { it.copy(startOnBoot = enabled) }
+                }
+                SettingLine(stringResource(R.string.about)) {
+                    HomeButton(stringResource(R.string.about_open), onClick = onAbout)
                 }
             }
         }

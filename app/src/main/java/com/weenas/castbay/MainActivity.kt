@@ -60,15 +60,19 @@ private fun Screens() {
         if (streaming) currentScreen = "mirror"
     }
 
-    // The remote's Back key leaves sub-screens instead of closing the app.
-    BackHandler(enabled = currentScreen != "mirror") { currentScreen = "mirror" }
+    // The remote's Back key leaves sub-screens instead of closing the app (About is opened
+    // from Settings, so it goes back there).
+    BackHandler(enabled = currentScreen != "mirror") {
+        currentScreen = if (currentScreen == "about") "settings" else "mirror"
+    }
 
     when (currentScreen) {
         "mirror" -> MirrorScreen(viewModel = viewModel)
         "settings" -> SettingsScreen(
             viewModel = viewModel,
-            onBack = { currentScreen = "mirror" }
+            onBack = { currentScreen = "mirror" },
+            onAbout = { currentScreen = "about" }
         )
-        "about" -> AboutScreen(onBack = { currentScreen = "mirror" })
+        "about" -> AboutScreen(onBack = { currentScreen = "settings" })
     }
 }

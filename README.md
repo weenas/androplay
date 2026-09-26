@@ -1,43 +1,36 @@
-# CastBay - AirPlay Receiver for Android TV
+# 映湾 CastBay: AirPlay and DLNA Receiver for Android TV
 
-An open-source Android TV project for receiving AirPlay streams. The receiver is under active development: screen mirroring and in-app video casting (e.g. the YouTube app) work on real devices.
+**Website: [castbay.weenas.com](https://castbay.weenas.com)** · **Download: [Releases](https://github.com/weenas/castbay/releases)** · [Privacy policy](https://castbay.weenas.com/privacy)
 
-## What is CastBay?
+CastBay (Chinese: 映湾) turns an Android TV into a receiver for iPhone, iPad and Mac: AirPlay screen mirroring, music and video, plus the cast button in video and music apps (DLNA). Free, open source, no ads.
 
-CastBay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The protocol module embeds the protocol library (`lib/`) from [UxPlay](https://github.com/FDH2/UxPlay), with Android NsdManager advertising, MediaCodec/AudioTrack output for mirroring, and Media3 ExoPlayer for AirPlay video.
+## Features
 
-## Planned Features
-
-- **Screen Mirroring** - Mirror iPhone/iPad/Mac screens to Android TV (H.264/H.265)
-- **Audio Streaming** - Stream music with AAC-ELD/AAC-LC/ALAC decoding
-- **Video Casting** - Cast in-app videos via HLS
-- **Android TV Optimized** - D-pad navigation, Picture-in-Picture, media session integration
-- **Open Source** - GPL-3.0 licensed, fully transparent
+- **Screen mirroring** from iPhone, iPad and Mac, up to 60 fps; H.265 up to 4K on 4K TVs with hardware HEVC decoding.
+- **Music**: a blurred-cover backdrop, optional synced lyrics (via lrclib.net) and round playback controls; AirPlay music is lossless ALAC.
+- **Video casting**: apps' AirPlay video (e.g. YouTube, iQiyi) plays straight from the source, with audio track and subtitle choices.
+- **DLNA**: the cast button in apps such as Bilibili, iQiyi, NetEase Cloud Music and QQ Music, from iPhone and Android phones.
+- **Made for the remote**: a quick menu while playing (picture fit, playback stats, audio/subtitles), Back twice to stop, Home keeps playing.
+- **Private**: optional casting password, refuse or allow a second device, no account and no data collection.
+- English and Chinese.
 
 ## Requirements
 
-- Android 8.0+ (API 26)
-- Android TV or Google TV device
-- Same local network as AirPlay sender
+- An Android TV or Google TV device on Android 8.0 (API 26) or later
+- The sender on the same local network
 
-## Current Status
+Tested on TCL (Android 9) and Sony BRAVIA (Android 12) TVs with iPhones.
 
-Tested with an iPhone on a Sony BRAVIA (Android 12):
+AirPlay and DLNA video are fetched by the TV itself (as on an Apple TV), so the TV must be able to reach the video source directly. For YouTube that means `googlevideo.com`; on networks where the phone only reaches it through a proxy or VPN, the TV needs one too.
 
-- **Screen mirroring** with AAC-ELD audio, portrait and landscape.
-- **AirPlay video (HLS)** from in-app players such as YouTube: the phone hands over the playlists and the TV plays them with ExoPlayer, resuming at the phone's position.
-
-AirPlay video is fetched by the TV itself (as on an Apple TV), so the TV must be able to reach the video source directly. For YouTube that means `googlevideo.com`; on networks where the phone only reaches it through a proxy or VPN, the TV needs one too, or playback stays black.
-
-Not done yet: audio-only AirPlay (music apps send ALAC, which Android has no built-in decoder for), H.265 mirroring, and on-screen loading/error feedback during AirPlay video.
-
-## Planned Technical Implementation
+## Technical Implementation
 
 - **AirPlay Protocol**: UxPlay's `lib/` (RAOP/RTSP/RTP, pairing, FairPlay, AirPlay video with FCUP)
 - **JNI Bridge**: Native C code interfaces with Android Java/Kotlin layer
 - **Video Decoding**: Android MediaCodec (hardware accelerated)
 - **Audio Output**: AudioTrack for low-latency audio
-- **HLS Streaming**: Media3/ExoPlayer for video casting
+- **Video casting**: Media3/ExoPlayer for AirPlay (HLS) and DLNA video and music
+- **DLNA**: an in-app UPnP media renderer (SSDP, AVTransport/RenderingControl, GENA events)
 - **mDNS Discovery**: Android NsdManager, publishing the TXT records UxPlay builds
 
 ## Building from Source
@@ -45,7 +38,7 @@ Not done yet: audio-only AirPlay (music apps send ALAC, which Android has no bui
 ```bash
 # Clone protocol dependencies with the repository
 git clone --recurse-submodules git@github.com:weenas/castbay.git
-cd CastBay
+cd castbay
 
 # Build (requires JDK 17-21, Android SDK 35, NDK 27.0.12077973, and CMake 3.22.1;
 # JDK 26 breaks AGP 8.7.3's prefab step)
@@ -61,7 +54,7 @@ git submodule update --init --recursive
 ## Project Structure
 
 ```
-CastBay/
+castbay/
 ├── app/                    # Android application
 │   ├── src/main/
 │   │   ├── java/com/weenas/castbay/
@@ -74,7 +67,8 @@ CastBay/
 │   │   └── res/              # Android resources
 │   └── build.gradle.kts
 ├── airplay/                # Android library, JNI bridge, and native protocol build
-├── third_party/            # Pinned UxPlay and libplist submodules
+├── third_party/            # Pinned UxPlay, libplist and ALAC submodules
+├── website/                # castbay.weenas.com (Cloudflare Pages)
 └── README.md
 ```
 
@@ -88,9 +82,12 @@ See the LICENSE file for details.
 - [UxPlay](https://github.com/FDH2/UxPlay) - AirPlay protocol library (mirroring, audio, HLS video)
 - [RPiPlay](https://github.com/FD-/RPiPlay) - the original core UxPlay's library grew from
 - [libplist](https://github.com/libimobiledevice/libplist) - binary plist support
+- [Apple ALAC](https://github.com/macosforge/alac) - the ALAC decoder for AirPlay music
+- [Media3 ExoPlayer](https://github.com/androidx/media) - video and DLNA playback
+- [LRCLIB](https://lrclib.net) - synced lyrics
 - Android Open Source Project - Base platform
 
 ## Disclaimer
 
-This project is not affiliated with or endorsed by Apple Inc.
-AirPlay is a trademark of Apple Inc.
+This project is not affiliated with or endorsed by Apple Inc. or Google LLC.
+AirPlay, iPhone, iPad and Mac are trademarks of Apple Inc.; Android TV and Google TV are trademarks of Google LLC.

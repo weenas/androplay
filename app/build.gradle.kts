@@ -22,8 +22,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // Bumped for every build installed on a test TV; the name's last part matches versionCode.
-        versionCode = 27
-        versionName = "1.0.27"
+        versionCode = 28
+        versionName = "1.0.28"
 
         if (enableNativeBuild.get()) {
             externalNativeBuild {
@@ -118,6 +118,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.8.2")
 
     implementation("com.google.code.gson:gson:2.11.0")
+    // QR codes on the About screen (a TV can't easily open a link; a phone can scan one).
+    implementation("com.google.zxing:core:3.5.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 
