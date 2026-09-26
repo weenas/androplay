@@ -20,7 +20,11 @@ class DacpClient(context: Context) {
         PAUSE("pause"),
         PLAY_PAUSE("playpause"),
         NEXT("nextitem"),
-        PREVIOUS("previtem")
+        PREVIOUS("previtem"),
+        /** Starts scanning; [PLAY_RESUME] ends it. iPhones scan fast: ~11 s per 0.25 s held. */
+        BEGIN_FAST_FORWARD("beginff"),
+        BEGIN_REWIND("beginrew"),
+        PLAY_RESUME("playresume")
     }
 
     private val nsd = context.applicationContext.getSystemService(NsdManager::class.java)
@@ -54,30 +58,52 @@ class DacpClient(context: Context) {
     }
 
     fun send(command: Command) {
-        val (target, targetPort, remote) = synchronized(lock) {
-            val target = host
-            val remote = activeRemote
-            if (target == null || remote == null || port == 0) {
-                Log.w(TAG, "No sender remote control available for ${command.path}")
-                return
-            }
-            Triple(target, port, remote)
-        }
+        val endpoint = endpoint(command) ?: return
+        executor.execute { request(command, endpoint) }
+    }
+
+    /**
+     * Skips roughly ten seconds. iPhones don't accept seeking to a time (setproperty
+     * dacp.playingtime answers 400), so this scans briefly and resumes; both requests run in one
+     * task so nothing else lands in between.
+     */
+    fun skip(forward: Boolean) {
+        val begin = if (forward) Command.BEGIN_FAST_FORWARD else Command.BEGIN_REWIND
+        val endpoint = endpoint(begin) ?: return
         executor.execute {
-            try {
-                // A raw socket rather than HttpURLConnection: the app only permits cleartext
-                // HTTP to localhost, and this request goes to the phone's LAN address.
-                Socket().use { socket ->
-                    socket.connect(InetSocketAddress(target, targetPort), TIMEOUT_MS)
-                    socket.soTimeout = TIMEOUT_MS
-                    val request = buildRequest(command, remote, hostHeader(target, targetPort))
-                    socket.getOutputStream().write(request.toByteArray(Charsets.US_ASCII))
-                    val status = socket.getInputStream().bufferedReader().readLine()
-                    Log.i(TAG, "${command.path} -> $status")
-                }
-            } catch (error: Exception) {
-                Log.w(TAG, "Remote control ${command.path} failed", error)
+            request(begin, endpoint)
+            Thread.sleep(SCAN_MS)
+            request(Command.PLAY_RESUME, endpoint)
+        }
+    }
+
+    private data class Endpoint(val host: InetAddress, val port: Int, val activeRemote: String)
+
+    private fun endpoint(command: Command): Endpoint? = synchronized(lock) {
+        val target = host
+        val remote = activeRemote
+        if (target == null || remote == null || port == 0) {
+            Log.w(TAG, "No sender remote control available for ${command.path}")
+            null
+        } else {
+            Endpoint(target, port, remote)
+        }
+    }
+
+    private fun request(command: Command, endpoint: Endpoint) {
+        try {
+            // A raw socket rather than HttpURLConnection: the app only permits cleartext
+            // HTTP to localhost, and this request goes to the phone's LAN address.
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress(endpoint.host, endpoint.port), TIMEOUT_MS)
+                socket.soTimeout = TIMEOUT_MS
+                val request = buildRequest(command, endpoint.activeRemote, hostHeader(endpoint.host, endpoint.port))
+                socket.getOutputStream().write(request.toByteArray(Charsets.US_ASCII))
+                val status = socket.getInputStream().bufferedReader().readLine()
+                Log.i(TAG, "${command.path} -> $status")
             }
+        } catch (error: Exception) {
+            Log.w(TAG, "Remote control ${command.path} failed", error)
         }
     }
 
@@ -138,6 +164,8 @@ class DacpClient(context: Context) {
         private const val TAG = "AndroPlayDacp"
         private const val SERVICE_TYPE = "_dacp._tcp"
         private const val TIMEOUT_MS = 3000
+        /** How long to scan per skip: about 11 s of music on an iPhone. */
+        private const val SCAN_MS = 250L
 
         fun serviceNameFor(dacpId: String) = "iTunes_Ctrl_$dacpId"
 

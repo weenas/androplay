@@ -26,6 +26,13 @@ import com.androplay.R
 import com.androplay.ui.mirroringLabel
 import com.androplay.ui.AppBackground
 import com.androplay.ui.Backdrop
+import com.androplay.ui.MediaIcons
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import com.androplay.ui.LocalBackgroundImage
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -133,7 +140,13 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
                             viewModel.findLyrics(title, song.artist, song.album, song.durationSec)
                         }
                     }
-                    AudioPlayback(nowPlaying = song, onCommand = viewModel::remoteControl, lyrics = lyrics, modifier = contentModifier)
+                    AudioPlayback(
+                        nowPlaying = song,
+                        onCommand = viewModel::remoteControl,
+                        onSkip = viewModel::skipMusic,
+                        lyrics = lyrics,
+                        modifier = contentModifier
+                    )
                 }
                 StreamKind.MIRRORING -> MirroringVideo(viewModel = viewModel, streamInfo = stream, pictureMode = settings.pictureMode, modifier = contentModifier)
             }
@@ -480,6 +493,8 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
 fun AudioPlayback(
     nowPlaying: NowPlaying,
     onCommand: (DacpClient.Command) -> Unit,
+    /** Skips about ten seconds forward (true) or back. */
+    onSkip: (Boolean) -> Unit,
     lyrics: Lyrics? = null,
     modifier: Modifier = Modifier
 ) {
@@ -501,24 +516,12 @@ fun AudioPlayback(
         onDispose { view.keepScreenOn = false }
     }
 
-    // The cover, blurred, behind everything (the key handling stays on the Row).
+    // The cover, blurred, behind everything.
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         MusicBackdrop(nowPlaying.coverArt)
         Row(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .onKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                    val command = when (event.key) {
-                        Key.DirectionCenter, Key.Enter -> DacpClient.Command.PLAY_PAUSE
-                        Key.DirectionLeft -> DacpClient.Command.PREVIOUS
-                        Key.DirectionRight -> DacpClient.Command.NEXT
-                        else -> null
-                    } ?: return@onKeyEvent false
-                    onCommand(command)
-                    true
-                }
-                .focusable()
                 .padding(horizontal = 96.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -561,7 +564,7 @@ fun AudioPlayback(
                         progress = { (position / nowPlaying.durationSec).toFloat() },
                         modifier = Modifier.fillMaxWidth().height(6.dp),
                         color = Color.White,
-                        trackColor = Color(0xFF444444)
+                        trackColor = Color.White.copy(alpha = 0.25f)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -570,15 +573,71 @@ fun AudioPlayback(
                     }
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                Text(
-                    stringResource(if (nowPlaying.playing) R.string.audio_hint_playing else R.string.audio_hint_paused),
-                    fontSize = 16.sp,
-                    color = Color(0xFF888888)
-                )
+                // The screen's focus (and so the remote's OK) starts on play/pause.
+                MusicControls(nowPlaying.playing, onCommand, onSkip, playModifier = modifier)
             }
         }
     }
 }
+
+/**
+ * Apple-style round icon buttons, focused the way the rest of the app is (the accent colour
+ * and a white outline): rewind, previous, play/pause (larger), next, fast forward.
+ */
+@Composable
+private fun MusicControls(
+    playing: Boolean,
+    onCommand: (DacpClient.Command) -> Unit,
+    onSkip: (Boolean) -> Unit,
+    playModifier: Modifier
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        MediaButton(MediaIcons.Rewind, R.string.music_rewind, MEDIA_BUTTON_SIZE) { onSkip(false) }
+        MediaButton(MediaIcons.Previous, R.string.music_previous, MEDIA_BUTTON_SIZE) {
+            onCommand(DacpClient.Command.PREVIOUS)
+        }
+        MediaButton(
+            if (playing) MediaIcons.Pause else MediaIcons.Play,
+            if (playing) R.string.music_pause else R.string.music_play,
+            PLAY_BUTTON_SIZE,
+            playModifier
+        ) { onCommand(DacpClient.Command.PLAY_PAUSE) }
+        MediaButton(MediaIcons.Next, R.string.music_next, MEDIA_BUTTON_SIZE) { onCommand(DacpClient.Command.NEXT) }
+        MediaButton(MediaIcons.FastForward, R.string.music_fast_forward, MEDIA_BUTTON_SIZE) { onSkip(true) }
+    }
+}
+
+@Composable
+private fun MediaButton(
+    icon: ImageVector,
+    description: Int,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val scale by animateFloatAsState(if (focused) 1.12f else 1f, label = "mediaButtonScale")
+    Box(
+        modifier = modifier
+            .size(size)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(CircleShape)
+            // Frosted glass at rest; the app's accent colour and outline when focused.
+            .background(if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f))
+            .then(if (focused) Modifier.border(3.dp, Color.White, CircleShape) else Modifier)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = stringResource(description), tint = Color.White, modifier = Modifier.size(size * 0.42f))
+    }
+}
+
+private val MEDIA_BUTTON_SIZE = 60.dp
+private val PLAY_BUTTON_SIZE = 80.dp
 
 /**
  * The album cover, enlarged and blurred under a dark veil, as Apple Music does; the launch
