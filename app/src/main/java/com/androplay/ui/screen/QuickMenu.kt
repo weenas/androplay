@@ -78,6 +78,11 @@ fun QuickMenu(viewModel: AirPlayViewModel, hasPicture: Boolean, player: Player?,
                 }
             }
         }
+        if (!hasPicture) {
+            MenuRow(stringResource(R.string.menu_lyrics), stringResource(if (settings.showLyrics) R.string.on else R.string.off)) {
+                viewModel.updateSettings { it.copy(showLyrics = !it.showLyrics) }
+            }
+        }
         if (player != null && audioChoices.size > 1) {
             MenuRow(stringResource(R.string.menu_audio), audioChoices.firstOrNull { it.selected }?.label ?: stringResource(R.string.auto)) {
                 MediaTracks.next(audioChoices)?.let { MediaTracks.select(player, C.TRACK_TYPE_AUDIO, it) }

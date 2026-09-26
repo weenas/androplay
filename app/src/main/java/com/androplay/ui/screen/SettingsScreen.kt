@@ -84,6 +84,12 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 }
             }
             item {
+                SwitchSetting(stringResource(R.string.setting_lyrics), settings.showLyrics) { enabled ->
+                    viewModel.updateSettings { it.copy(showLyrics = enabled) }
+                }
+                Text(stringResource(R.string.setting_lyrics_note), color = Color.Gray, fontSize = 14.sp)
+            }
+            item {
                 ChoiceSetting(stringResource(R.string.setting_picture), settings.pictureMode, ReceiverSettings.PICTURE_MODES) {
                     viewModel.updateSettings { current -> current.copy(pictureMode = it) }
                 }
