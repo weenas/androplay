@@ -58,6 +58,7 @@ class ReceiverSettingsTest {
     fun onlyProtocolSettingsRestartTheReceiver() {
         val base = ReceiverSettings()
         assertFalse(base.copy(showStats = true).needsRestartComparedTo(base))
+        assertFalse(base.copy(pictureMode = ReceiverSettings.PICTURE_FILL).needsRestartComparedTo(base))
         assertFalse(base.copy(startOnBoot = false).needsRestartComparedTo(base))
         assertTrue(base.copy(videoCodec = ReceiverSettings.CODEC_H264_ONLY).needsRestartComparedTo(base))
         assertTrue(base.copy(allowTakeover = true).needsRestartComparedTo(base))

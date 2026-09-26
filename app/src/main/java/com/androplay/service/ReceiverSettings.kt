@@ -20,7 +20,9 @@ data class ReceiverSettings(
     /** Start the receiver when the TV boots, so it is always ready like an Apple TV. */
     val startOnBoot: Boolean = true,
     /** Show a "stats for nerds" overlay (codec, resolution, bitrate, ...) while playing. */
-    val showStats: Boolean = false
+    val showStats: Boolean = false,
+    /** How mirroring and AirPlay video fill the screen: [PICTURE_FIT], [PICTURE_FILL] or [PICTURE_STRETCH]. */
+    val pictureMode: String = PICTURE_FIT
 ) {
     /**
      * The display size advertised to senders, which they size mirroring to. "Auto" is the
@@ -43,9 +45,14 @@ data class ReceiverSettings(
             }
         }
 
-    /** Whether switching from [previous] needs a running receiver restarted (protocol settings). */
+    /**
+     * Whether switching from [previous] needs a running receiver restarted: connection settings
+     * do (senders must reconnect); playback settings apply live and are also in the quick menu.
+     */
     fun needsRestartComparedTo(previous: ReceiverSettings): Boolean =
-        copy(startOnBoot = false, showStats = false) != previous.copy(startOnBoot = false, showStats = false)
+        withoutLiveSettings() != previous.withoutLiveSettings()
+
+    private fun withoutLiveSettings() = copy(startOnBoot = false, showStats = false, pictureMode = PICTURE_FIT)
 
     /** Frames per second senders may mirror at. "Auto" is 60: TVs decode in hardware. */
     fun maxFps(): Int = if (frameRate == "30 FPS") 30 else 60
@@ -58,6 +65,10 @@ data class ReceiverSettings(
         const val FRAME_RATE_AUTO = "Auto"
         val RESOLUTIONS = listOf(RESOLUTION_AUTO, "720p", "1080p")
         val FRAME_RATES = listOf(FRAME_RATE_AUTO, "30 FPS", "60 FPS")
+        const val PICTURE_FIT = "Fit"
+        const val PICTURE_FILL = "Fill"
+        const val PICTURE_STRETCH = "Stretch"
+        val PICTURE_MODES = listOf(PICTURE_FIT, PICTURE_FILL, PICTURE_STRETCH)
         const val CODEC_AUTO = "Auto"
         const val CODEC_H264_ONLY = "H.264 only"
         val VIDEO_CODECS = listOf(CODEC_AUTO, CODEC_H264_ONLY)
@@ -90,7 +101,9 @@ class ReceiverSettingsStore(context: Context) {
         ),
         allowTakeover = preferences.getBoolean("allow_takeover", false),
         startOnBoot = preferences.getBoolean("start_on_boot", true),
-        showStats = preferences.getBoolean("show_stats", false)
+        showStats = preferences.getBoolean("show_stats", false),
+        pictureMode = preferences.getString("picture_mode", null)
+            ?.takeIf { it in ReceiverSettings.PICTURE_MODES } ?: ReceiverSettings.PICTURE_FIT
     )
 
     fun save(settings: ReceiverSettings) {
@@ -104,6 +117,7 @@ class ReceiverSettingsStore(context: Context) {
             .putBoolean("allow_takeover", settings.allowTakeover)
             .putBoolean("start_on_boot", settings.startOnBoot)
             .putBoolean("show_stats", settings.showStats)
+            .putString("picture_mode", settings.pictureMode)
             .remove("audio_latency")
             .apply()
     }
