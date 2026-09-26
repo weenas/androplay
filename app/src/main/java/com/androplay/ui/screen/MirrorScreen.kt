@@ -17,6 +17,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.androplay.service.DacpClient
 import com.androplay.service.NowPlaying
 import com.androplay.service.StatsFormat
+import com.androplay.service.PictureLayout
+import com.androplay.service.ReceiverSettings
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.text.font.FontFamily
 import com.androplay.service.NetworkStatus
 import android.Manifest
@@ -58,14 +63,45 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
         (stream.isVideoPlayback || stream.isAudioOnly || stream.isMirroring)
     ) {
         val settings by viewModel.settings.collectAsState()
-        Box(modifier = Modifier.fillMaxSize()) {
-            when {
-                stream.isVideoPlayback -> VideoPlayback(viewModel = viewModel)
-                stream.isAudioOnly -> AudioPlayback(nowPlaying = stream.nowPlaying, onCommand = viewModel::remoteControl)
-                else -> MirroringVideo(viewModel = viewModel, streamInfo = stream)
+        val kind = when {
+            stream.isVideoPlayback -> StreamKind.VIDEO
+            stream.isAudioOnly -> StreamKind.AUDIO
+            else -> StreamKind.MIRRORING
+        }
+        var menuOpen by remember(kind) { mutableStateOf(false) }
+        // The playing content takes D-pad focus, and gets it back when the quick menu closes.
+        val contentFocus = remember(kind) { FocusRequester() }
+        LaunchedEffect(kind, menuOpen) {
+            if (!menuOpen) contentFocus.requestFocus()
+        }
+        BackHandler(enabled = menuOpen) { menuOpen = false }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent { event ->
+                    // Down and Menu are free during playback (left/right/OK control it).
+                    if (menuOpen || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    if (event.key != Key.DirectionDown && event.key != Key.Menu) return@onPreviewKeyEvent false
+                    menuOpen = true
+                    true
+                }
+        ) {
+            val contentModifier = Modifier.focusRequester(contentFocus)
+            when (kind) {
+                StreamKind.VIDEO -> VideoPlayback(viewModel = viewModel, pictureMode = settings.pictureMode, modifier = contentModifier)
+                StreamKind.AUDIO -> AudioPlayback(nowPlaying = stream.nowPlaying, onCommand = viewModel::remoteControl, modifier = contentModifier)
+                StreamKind.MIRRORING -> MirroringVideo(viewModel = viewModel, streamInfo = stream, pictureMode = settings.pictureMode, modifier = contentModifier)
             }
             if (settings.showStats) {
                 StatsOverlay(viewModel, Modifier.align(Alignment.TopStart).padding(24.dp))
+            }
+            if (menuOpen) {
+                QuickMenu(
+                    viewModel = viewModel,
+                    hasPicture = kind != StreamKind.AUDIO,
+                    player = if (kind == StreamKind.VIDEO) viewModel.videoPlayer else null,
+                    modifier = Modifier.align(Alignment.CenterEnd).padding(48.dp)
+                )
             }
         }
         return
@@ -355,7 +391,7 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
  * OK and left/right keys control the sender; media keys reach it through the media session.
  */
 @Composable
-fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Unit) {
+fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Unit, modifier: Modifier = Modifier) {
     val cover = remember(nowPlaying.coverArt) {
         nowPlaying.coverArt?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
     }
@@ -374,7 +410,7 @@ fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Uni
     }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .onKeyEvent { event ->
@@ -388,7 +424,6 @@ fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Uni
                 onCommand(command)
                 true
             }
-            .initialFocus()
             .focusable()
             .padding(horizontal = 96.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -454,7 +489,7 @@ private fun formatTime(seconds: Double): String {
  * (OK / play-pause) and skip 10 s (left/right, rewind/fast-forward).
  */
 @Composable
-fun VideoPlayback(viewModel: AirPlayViewModel) {
+fun VideoPlayback(viewModel: AirPlayViewModel, pictureMode: String, modifier: Modifier = Modifier) {
     val player = viewModel.videoPlayer
     var paused by remember(player) { mutableStateOf(player?.playWhenReady == false) }
     DisposableEffect(player) {
@@ -468,7 +503,7 @@ fun VideoPlayback(viewModel: AirPlayViewModel) {
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
             .onKeyEvent { event ->
@@ -482,7 +517,6 @@ fun VideoPlayback(viewModel: AirPlayViewModel) {
                 }
                 true
             }
-            .initialFocus()
             .focusable(),
         contentAlignment = Alignment.Center
     ) {
@@ -492,14 +526,20 @@ fun VideoPlayback(viewModel: AirPlayViewModel) {
                     useController = false
                     // Spinner while loading or rebuffering, so a slow start isn't a black screen.
                     setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     keepScreenOn = true
                     // Keys are handled by the Compose container above.
                     isFocusable = false
                 }
             },
-            update = { it.player = player },
+            update = {
+                it.player = player
+                it.resizeMode = when (pictureMode) {
+                    ReceiverSettings.PICTURE_FILL -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    ReceiverSettings.PICTURE_STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                    else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+                }
+            },
             onRelease = { it.player = null },
             modifier = Modifier.fillMaxSize()
         )
@@ -518,6 +558,8 @@ fun VideoPlayback(viewModel: AirPlayViewModel) {
 }
 
 private const val SEEK_STEP_SEC = 10
+
+private enum class StreamKind { VIDEO, AUDIO, MIRRORING }
 
 /** "Stats for nerds": what is playing and how, refreshed every second. */
 @Composable
@@ -574,20 +616,30 @@ private fun StatsLine(label: String, value: String, bold: Boolean = false) {
     }
 }
 
-/** Full-screen mirrored picture, letterboxed to the sender's aspect ratio. */
+/**
+ * Full-screen mirrored picture, sized by [pictureMode]: letterboxed to the sender's aspect ratio
+ * (Fit), cropped to cover the screen (Fill) or stretched.
+ */
 @Composable
-fun MirroringVideo(viewModel: AirPlayViewModel, streamInfo: com.androplay.service.StreamInfo) {
-    Box(
-        modifier = Modifier
+fun MirroringVideo(
+    viewModel: AirPlayViewModel,
+    streamInfo: com.androplay.service.StreamInfo,
+    pictureMode: String,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(
+        modifier = modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .clipToBounds()
+            .background(Color.Black)
+            // Focusable so the remote's keys reach the quick menu shortcut.
+            .focusable(),
         contentAlignment = Alignment.Center
     ) {
-        val videoModifier = if (streamInfo.frameWidth > 0 && streamInfo.frameHeight > 0) {
-            Modifier.aspectRatio(streamInfo.frameWidth.toFloat() / streamInfo.frameHeight)
-        } else {
-            Modifier.fillMaxSize()
-        }
+        val (width, height) = PictureLayout.size(
+            pictureMode, maxWidth.value, maxHeight.value, streamInfo.frameWidth, streamInfo.frameHeight
+        )
+        val videoModifier = Modifier.requiredSize(width.dp, height.dp)
         AndroidView(
             factory = { context ->
                 SurfaceView(context).apply {

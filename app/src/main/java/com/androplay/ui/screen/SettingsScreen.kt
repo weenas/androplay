@@ -35,36 +35,20 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            // Connection settings change what senders see, so the receiver restarts for them;
+            // playback settings apply live and are also in the quick menu during playback.
             item {
-                Text(
-                    "Changes apply right away; a running receiver restarts, so connected devices need to reconnect.",
-                    color = Color.Gray
+                SectionHeader(
+                    "Connection",
+                    "Changing these restarts the receiver; connected devices need to reconnect."
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            item {
-                Text("Receiver", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(modifier = Modifier.height(8.dp))
                 DeviceNameSetting(value = settings.deviceName) { name ->
                     viewModel.updateSettings { it.copy(deviceName = name) }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                SwitchSetting("Start when the TV turns on", settings.startOnBoot) { enabled ->
-                    viewModel.updateSettings { it.copy(startOnBoot = enabled) }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
             }
-            item {
-                Text("Display", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
             item { ChoiceSetting("Mirroring Resolution", settings.resolution, ReceiverSettings.RESOLUTIONS) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
             item { ChoiceSetting("Mirroring Frame Rate", settings.frameRate, ReceiverSettings.FRAME_RATES) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
-            item {
-                SwitchSetting("Show playback stats", settings.showStats) { enabled ->
-                    viewModel.updateSettings { it.copy(showStats = enabled) }
-                }
-            }
             item {
                 ChoiceSetting("Mirroring Codec", settings.videoCodec, ReceiverSettings.VIDEO_CODECS) {
                     viewModel.updateSettings { current -> current.copy(videoCodec = it) }
@@ -78,11 +62,6 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                     fontSize = 14.sp
                 )
             }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
-            item {
-                Text("Security", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
             item { AccessSetting(settings, viewModel) }
             item {
                 ChoiceSetting(
@@ -91,8 +70,36 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                     listOf(TAKEOVER_REFUSE, TAKEOVER_ALLOW)
                 ) { choice -> viewModel.updateSettings { it.copy(allowTakeover = choice == TAKEOVER_ALLOW) } }
             }
+            item {
+                SectionHeader(
+                    "Playback",
+                    "These apply right away. While casting, press Down or Menu on the remote to change them."
+                )
+                SwitchSetting("Show playback stats", settings.showStats) { enabled ->
+                    viewModel.updateSettings { it.copy(showStats = enabled) }
+                }
+            }
+            item {
+                ChoiceSetting("Picture", settings.pictureMode, ReceiverSettings.PICTURE_MODES) {
+                    viewModel.updateSettings { current -> current.copy(pictureMode = it) }
+                }
+            }
+            item {
+                SectionHeader("System", null)
+                SwitchSetting("Start when the TV turns on", settings.startOnBoot) { enabled ->
+                    viewModel.updateSettings { it.copy(startOnBoot = enabled) }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun SectionHeader(title: String, note: String?) {
+    Spacer(modifier = Modifier.height(24.dp))
+    Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    note?.let { Text(it, color = Color.Gray, fontSize = 14.sp) }
+    Spacer(modifier = Modifier.height(8.dp))
 }
 
 @Composable
