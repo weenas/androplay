@@ -17,6 +17,22 @@ import com.androplay.R
 import com.androplay.ui.mirroringLabel
 import com.androplay.ui.settingValueLabel
 import com.androplay.ui.AppBackground
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.androplay.viewmodel.AirPlayViewModel
@@ -150,13 +166,71 @@ fun ChoiceSetting(
 }
 
 @Composable
-fun DeviceNameSetting(label: String = stringResource(R.string.setting_device_name), value: String, isPassword: Boolean = false, onSaved: (String) -> Unit) {
-    var editing by remember(value) { mutableStateOf(value) }
-    OutlinedTextField(value = editing, onValueChange = { editing = it }, label = { Text(label) }, singleLine = true,
-        visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = if (isPassword) androidx.compose.ui.text.input.KeyboardType.NumberPassword else androidx.compose.ui.text.input.KeyboardType.Text),
-        modifier = Modifier.fillMaxWidth(),
-        trailingIcon = { TextButton(onClick = { onSaved(editing) }) { Text(stringResource(R.string.action_save)) } })
+fun DeviceNameSetting(value: String, onSaved: (String) -> Unit) {
+    TextSetting(
+        value = value,
+        label = stringResource(R.string.setting_device_name),
+        canSave = { it.isNotBlank() },
+        onSaved = onSaved
+    )
+}
+
+/**
+ * A text field with a Save button beside it (not inside: a remote's left/right move the cursor
+ * in a field, so a button within it can't be reached). Right at the end of the text moves to
+ * Save, and the on-screen keyboard's Done key saves too. Save is grey while there's nothing
+ * new to save.
+ */
+@Composable
+private fun TextSetting(
+    value: String,
+    label: String,
+    canSave: (String) -> Boolean,
+    onSaved: (String) -> Unit,
+    password: Boolean = false,
+    filter: (String) -> String = { it },
+    supportingText: (@Composable (String) -> Unit)? = null,
+    isError: (String) -> Boolean = { false }
+) {
+    var editing by remember(value) { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val savable = canSave(editing.text) && editing.text != value
+    val save = {
+        if (savable) onSaved(editing.text)
+        keyboard?.hide()
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = editing,
+            onValueChange = { changed ->
+                val text = filter(changed.text)
+                editing = if (text == changed.text) changed else TextFieldValue(text, TextRange(text.length))
+            },
+            label = { Text(label) },
+            supportingText = supportingText?.let { content -> { content(editing.text) } },
+            isError = isError(editing.text),
+            singleLine = true,
+            visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (password) KeyboardType.NumberPassword else KeyboardType.Text,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { save() }),
+            modifier = Modifier
+                .weight(1f)
+                .onPreviewKeyEvent { event ->
+                    val atEnd = editing.selection.collapsed && editing.selection.end == editing.text.length
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionRight && atEnd) {
+                        focusManager.moveFocus(FocusDirection.Right)
+                    } else {
+                        false
+                    }
+                }
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        HomeButton(stringResource(R.string.action_save), muted = !savable) { save() }
+    }
 }
 
 private const val ACCESS_OPEN = "Not required"
@@ -197,26 +271,20 @@ fun AccessSetting(settings: ReceiverSettings, viewModel: AirPlayViewModel) {
 /** The password senders must enter: at least [ReceiverSettings.MIN_PIN_LENGTH] digits. */
 @Composable
 fun PinSetting(value: String, onSaved: (String) -> Unit) {
-    var editing by remember(value) { mutableStateOf(value) }
-    val invalid = !ReceiverSettings.isValidPin(editing)
-    OutlinedTextField(
-        value = editing,
-        onValueChange = { editing = it.filter(Char::isDigit) },
-        label = { Text(stringResource(R.string.setting_password_field)) },
-        supportingText = {
+    TextSetting(
+        value = value,
+        label = stringResource(R.string.setting_password_field),
+        canSave = ReceiverSettings::isValidPin,
+        onSaved = onSaved,
+        password = true,
+        filter = { it.filter(Char::isDigit) },
+        supportingText = { text ->
             Text(
-                if (invalid) stringResource(R.string.setting_password_too_short, ReceiverSettings.MIN_PIN_LENGTH)
+                if (!ReceiverSettings.isValidPin(text)) stringResource(R.string.setting_password_too_short, ReceiverSettings.MIN_PIN_LENGTH)
                 else stringResource(R.string.setting_password_help)
             )
         },
-        isError = invalid && editing.isNotEmpty(),
-        singleLine = true,
-        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-            keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
-        ),
-        modifier = Modifier.fillMaxWidth(),
-        trailingIcon = { TextButton(onClick = { onSaved(editing) }, enabled = !invalid) { Text(stringResource(R.string.action_save)) } }
+        isError = { text -> text.isNotEmpty() && !ReceiverSettings.isValidPin(text) }
     )
 }
 
