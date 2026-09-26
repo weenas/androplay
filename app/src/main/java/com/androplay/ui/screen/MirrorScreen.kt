@@ -25,6 +25,12 @@ import androidx.compose.ui.res.stringResource
 import com.androplay.R
 import com.androplay.ui.mirroringLabel
 import com.androplay.ui.AppBackground
+import com.androplay.ui.Backdrop
+import com.androplay.ui.LocalBackgroundImage
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -491,81 +497,115 @@ fun AudioPlayback(
         onDispose { view.keepScreenOn = false }
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .onKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                val command = when (event.key) {
-                    Key.DirectionCenter, Key.Enter -> DacpClient.Command.PLAY_PAUSE
-                    Key.DirectionLeft -> DacpClient.Command.PREVIOUS
-                    Key.DirectionRight -> DacpClient.Command.NEXT
-                    else -> null
-                } ?: return@onKeyEvent false
-                onCommand(command)
-                true
-            }
-            .focusable()
-            .padding(horizontal = 96.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(360.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF2A2A2A)),
-            contentAlignment = Alignment.Center
+    // The cover, blurred, behind everything (the key handling stays on the Row).
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        MusicBackdrop(nowPlaying.coverArt)
+        Row(
+            modifier = modifier
+                .fillMaxSize()
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    val command = when (event.key) {
+                        Key.DirectionCenter, Key.Enter -> DacpClient.Command.PLAY_PAUSE
+                        Key.DirectionLeft -> DacpClient.Command.PREVIOUS
+                        Key.DirectionRight -> DacpClient.Command.NEXT
+                        else -> null
+                    } ?: return@onKeyEvent false
+                    onCommand(command)
+                    true
+                }
+                .focusable()
+                .padding(horizontal = 96.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (cover != null) {
-                Image(bitmap = cover, contentDescription = stringResource(R.string.cover_art), contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize())
-            } else {
-                Text("♪", fontSize = 120.sp, color = Color.Gray)
-            }
-        }
-        Spacer(modifier = Modifier.width(64.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            // An explicit line height: the default text style's is 24 sp, so a long title wrapped
-            // onto a second line drawn over the first.
-            Text(nowPlaying.title ?: stringResource(R.string.airplay_audio), fontSize = 36.sp, lineHeight = 46.sp,
-                fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            nowPlaying.artist?.let {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(it, fontSize = 26.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            nowPlaying.album?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(it, fontSize = 20.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (lyrics != null) {
-                Spacer(modifier = Modifier.height(24.dp))
-                LyricsView(lyrics, nowPlaying.currentPositionSec(now))
-            }
-            if (nowPlaying.durationSec > 0) {
-                val position = nowPlaying.currentPositionSec(now)
-                Spacer(modifier = Modifier.height(40.dp))
-                LinearProgressIndicator(
-                    progress = { (position / nowPlaying.durationSec).toFloat() },
-                    modifier = Modifier.fillMaxWidth().height(6.dp),
-                    color = Color.White,
-                    trackColor = Color(0xFF444444)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(formatTime(position), fontSize = 18.sp, color = Color.Gray)
-                    Text(formatTime(nowPlaying.durationSec), fontSize = 18.sp, color = Color.Gray)
+            Box(
+                modifier = Modifier
+                    .size(360.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF2A2A2A)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (cover != null) {
+                    Image(bitmap = cover, contentDescription = stringResource(R.string.cover_art), contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize())
+                } else {
+                    Text("♪", fontSize = 120.sp, color = Color.Gray)
                 }
             }
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                stringResource(if (nowPlaying.playing) R.string.audio_hint_playing else R.string.audio_hint_paused),
-                fontSize = 16.sp,
-                color = Color(0xFF888888)
-            )
+            Spacer(modifier = Modifier.width(64.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                // An explicit line height: the default text style's is 24 sp, so a long title wrapped
+                // onto a second line drawn over the first.
+                Text(nowPlaying.title ?: stringResource(R.string.airplay_audio), fontSize = 36.sp, lineHeight = 46.sp,
+                    fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                nowPlaying.artist?.let {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(it, fontSize = 26.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                nowPlaying.album?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(it, fontSize = 20.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (lyrics != null) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    LyricsView(lyrics, nowPlaying.currentPositionSec(now))
+                }
+                if (nowPlaying.durationSec > 0) {
+                    val position = nowPlaying.currentPositionSec(now)
+                    Spacer(modifier = Modifier.height(40.dp))
+                    LinearProgressIndicator(
+                        progress = { (position / nowPlaying.durationSec).toFloat() },
+                        modifier = Modifier.fillMaxWidth().height(6.dp),
+                        color = Color.White,
+                        trackColor = Color(0xFF444444)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(formatTime(position), fontSize = 18.sp, color = Color.Gray)
+                        Text(formatTime(nowPlaying.durationSec), fontSize = 18.sp, color = Color.Gray)
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                Text(
+                    stringResource(if (nowPlaying.playing) R.string.audio_hint_playing else R.string.audio_hint_paused),
+                    fontSize = 16.sp,
+                    color = Color(0xFF888888)
+                )
+            }
         }
     }
 }
+
+/**
+ * The album cover, enlarged and blurred under a dark veil, as Apple Music does; the launch
+ * artwork when the song has no cover. Cross-fades when the song changes.
+ */
+@Composable
+private fun MusicBackdrop(coverArt: ByteArray?) {
+    val blurred by produceState<ImageBitmap?>(null, coverArt) {
+        value = coverArt?.let { cover ->
+            withContext(Dispatchers.Default) { Backdrop.fromCover(cover)?.asImageBitmap() }
+        }
+    }
+    // Only fall back while there is no cover at all, not while one is being blurred.
+    val image = blurred ?: LocalBackgroundImage.current.takeIf { coverArt == null }
+    Crossfade(targetState = image, animationSpec = tween(BACKDROP_FADE_MS), label = "backdrop") { current ->
+        if (current != null) {
+            Image(
+                bitmap = current,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                filterQuality = FilterQuality.High,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = BACKDROP_DIM)))
+}
+
+private const val BACKDROP_FADE_MS = 700
+/** Dark enough for white text over bright covers. */
+private const val BACKDROP_DIM = 0.6f
 
 /** A few lines of [lyrics] around the one being sung at [positionSec], which is highlighted. */
 @Composable
