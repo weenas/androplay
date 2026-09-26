@@ -35,14 +35,27 @@ android {
         }
     }
 
+    // The release key comes from the environment (GitHub Actions secrets, or a local shell);
+    // it never lives in the repository. Without it, release builds fall back to the debug key
+    // so local release builds still install on test TVs.
+    val releaseKeystore = System.getenv("CASTBAY_KEYSTORE_FILE")?.let(::file)?.takeIf { it.isFile }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("CASTBAY_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CASTBAY_KEY_ALIAS")
+                keyPassword = System.getenv("CASTBAY_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             // R8 drops the unused parts of Compose, Media3 and Kotlin (about 2/3 of the dex).
             isMinifyEnabled = true
             isShrinkResources = true
-            // Signed with the debug key for now, so it installs over test builds on TVs.
-            // TODO: a real release key before publishing.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
