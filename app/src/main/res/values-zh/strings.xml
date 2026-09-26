@@ -1,4 +1,6 @@
 <resources>
+    <!-- The Chinese name; senders still see the device name, "CastBay" by default. -->
+    <string name="app_name">映湾</string>
     <string name="app_tagline">Android TV 上的 AirPlay 接收器</string>
 
     <!-- Common -->
@@ -18,7 +20,7 @@
     <string name="waiting_how_dlna">iPhone 或 iPad：控制中心 → 屏幕镜像 → %1$s。在 App 中，点 AirPlay 图标，或 App 自带的投屏按钮（如 B 站）。</string>
     <string name="waiting_same_network">手机和电视需要连接同一个网络。</string>
     <string name="starting">启动中…</string>
-    <string name="advertising_only_title">CastBay 已在局域网中可见</string>
+    <string name="advertising_only_title">映湾已在局域网中可见</string>
     <string name="advertising_only_detail">仅可被发现，暂不支持 AirPlay 投屏。</string>
     <string name="connecting">正在连接…</string>
     <string name="connected">已连接</string>
@@ -116,7 +118,7 @@
     <string name="about_powered_by">基于 UxPlay（GPL-3.0）</string>
 
     <!-- Notification -->
-    <string name="notification_channel">CastBay 服务</string>
+    <string name="notification_channel">映湾服务</string>
     <string name="notification_starting">正在启动接收器</string>
     <string name="notification_waiting">等待 AirPlay 或 DLNA 投屏</string>
     <string name="notification_discovery_only">正在发布 AirPlay 服务</string>
