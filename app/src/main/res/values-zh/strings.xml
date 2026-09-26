@@ -1,0 +1,123 @@
+<resources>
+    <string name="app_tagline">Android TV 上的 AirPlay 接收器</string>
+
+    <!-- Common -->
+    <string name="action_start">开始</string>
+    <string name="action_stop">停止</string>
+    <string name="action_retry">重试</string>
+    <string name="action_save">保存</string>
+    <string name="on">开</string>
+    <string name="off">关</string>
+    <string name="auto">自动</string>
+    <string name="unknown_error">未知错误</string>
+
+    <!-- Home and status screens -->
+    <string name="waiting_title">等待投屏连接…</string>
+    <string name="waiting_how">iPhone 或 iPad：控制中心 → 屏幕镜像 → %1$s。在 App 中，点 AirPlay 图标。</string>
+    <string name="waiting_how_dlna">iPhone 或 iPad：控制中心 → 屏幕镜像 → %1$s。在 App 中，点 AirPlay 图标，或 App 自带的投屏按钮（如 B 站）。</string>
+    <string name="waiting_same_network">手机和电视需要连接同一个网络。</string>
+    <string name="publishing">正在局域网中发布 AndroPlay…</string>
+    <string name="advertising_only_title">AndroPlay 已在局域网中可见</string>
+    <string name="advertising_only_detail">仅可被发现，暂不支持 AirPlay 投屏。</string>
+    <string name="connecting">正在连接…</string>
+    <string name="connected">已连接</string>
+    <string name="connected_from">来自：%1$s</string>
+    <string name="streaming">正在投屏</string>
+    <string name="streaming_source">来源：%1$s</string>
+    <string name="disconnected">已断开</string>
+    <string name="error_title">出错了</string>
+    <string name="settings">设置</string>
+
+    <!-- Receiver info panel -->
+    <string name="info_name">名称</string>
+    <string name="info_network">网络</string>
+    <string name="info_ip">IP 地址</string>
+    <string name="info_mirroring">屏幕镜像</string>
+    <string name="info_dlna">DLNA 投屏</string>
+    <string name="info_dlna_on">开（App 自带投屏按钮）</string>
+    <string name="info_password">密码</string>
+    <string name="info_second_device">其他设备投屏</string>
+    <string name="info_takes_over">接管</string>
+    <string name="info_refused">拒绝</string>
+    <string name="info_version">版本</string>
+    <string name="show_wifi_name">显示 Wi-Fi 名称</string>
+    <string name="wifi_name_needs_location">在电视设置中打开"位置信息"后才能显示 Wi-Fi 名称。</string>
+    <string name="no_network">电视没有连接网络。</string>
+    <string name="network_wifi">Wi-Fi</string>
+    <string name="network_wifi_named">Wi-Fi · %1$s</string>
+    <string name="network_ethernet">有线网络</string>
+    <string name="network_other">已连接</string>
+    <string name="network_none">未连接</string>
+
+    <!-- Mirroring profile -->
+    <string name="mirroring_up_to_4k">最高 4K</string>
+    <string name="mirroring_note_screen">%1$dp 屏幕</string>
+    <string name="mirroring_note_decoder">解码器不支持 4K</string>
+    <string name="mirroring_note_needs_h265">4K 需要 H.265</string>
+    <string name="mirroring_note_no_hw_decoder">没有支持 4K 的 H.265 硬件解码器</string>
+
+    <!-- Playback -->
+    <string name="press_back_again">再按一次返回键结束投屏</string>
+    <string name="airplay_audio">AirPlay 音频</string>
+    <string name="cover_art">封面</string>
+    <string name="audio_hint_playing">OK：暂停    ◀ ▶：上一首 / 下一首</string>
+    <string name="audio_hint_paused">OK：播放    ◀ ▶：上一首 / 下一首</string>
+
+    <!-- Quick menu -->
+    <string name="menu_title">播放</string>
+    <string name="menu_stats">播放统计信息</string>
+    <string name="menu_picture">画面</string>
+    <string name="menu_audio">音轨</string>
+    <string name="menu_subtitles">字幕</string>
+    <string name="menu_stop_casting">结束投屏</string>
+    <string name="menu_hint">OK：切换    返回：关闭</string>
+    <string name="picture_fit">适应</string>
+    <string name="picture_fill">填充</string>
+    <string name="picture_stretch">拉伸</string>
+
+    <!-- Settings -->
+    <string name="section_connection">连接</string>
+    <string name="section_connection_note">修改这些设置会重启接收器，已连接的设备需要重新连接。</string>
+    <string name="section_playback">播放</string>
+    <string name="section_playback_note">立即生效。投屏时按遥控器的下键或菜单键也可以修改。</string>
+    <string name="section_system">系统</string>
+    <string name="setting_device_name">设备名称</string>
+    <string name="setting_resolution">镜像分辨率</string>
+    <string name="setting_frame_rate">镜像帧率</string>
+    <string name="setting_codec">镜像编码</string>
+    <string name="setting_codec_h264_only">仅 H.264</string>
+    <string name="setting_this_tv">本机：%1$s</string>
+    <string name="setting_dlna">DLNA 投屏（App 自带投屏按钮）</string>
+    <string name="setting_password">投屏密码</string>
+    <string name="setting_password_off">不需要</string>
+    <string name="setting_password_on">需要</string>
+    <string name="setting_password_field">密码</string>
+    <string name="setting_password_too_short">至少 %1$d 位数字。</string>
+    <string name="setting_password_help">设备用 AirPlay 投屏到电视时需要输入这个密码。</string>
+    <string name="setting_takeover">其他设备投屏时</string>
+    <string name="setting_takeover_refuse">拒绝</string>
+    <string name="setting_takeover_allow">让它接管</string>
+    <string name="setting_stats">显示播放统计信息</string>
+    <string name="setting_picture">画面</string>
+    <string name="setting_start_on_boot">电视开机时自动启动</string>
+    <string name="frame_rate_fps">%1$d 帧/秒</string>
+
+    <!-- About -->
+    <string name="about">关于</string>
+    <string name="about_version">版本 %1$s</string>
+    <string name="about_powered_by">基于 UxPlay（GPL-3.0）</string>
+
+    <!-- Notification -->
+    <string name="notification_channel">AndroPlay 服务</string>
+    <string name="notification_starting">正在启动接收器</string>
+    <string name="notification_waiting">等待 AirPlay 或 DLNA 投屏</string>
+    <string name="notification_discovery_only">正在发布 AirPlay 服务</string>
+    <string name="notification_discoverable_only">仅可被发现，暂不支持投屏</string>
+
+    <!-- Errors shown on the waiting screen -->
+    <string name="error_discovery">无法启动局域网发现服务</string>
+    <string name="error_video_unreachable">无法连接视频服务器。电视需要能直接访问该视频网站。</string>
+    <string name="error_video_refused">视频服务器拒绝了请求。</string>
+    <string name="error_video_format">这台电视无法播放该视频格式。</string>
+    <string name="error_video_failed">视频播放失败（%1$s）。</string>
+</resources>

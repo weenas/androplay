@@ -47,12 +47,34 @@ data class HevcSupport(
  * encode to. Senders only switch to H.265 for displays taller than 1080p (see UxPlay's -h265
  * notes), so it is offered only together with a 4K display. [note] says why the size is capped.
  */
-data class MirroringProfile(val h265: Boolean, val width: Int, val height: Int, val note: String? = null) {
-    /** For the home and settings screens, e.g. "H.265 · up to 4K" or "H.264 · 1080p (1080p screen)". */
+data class MirroringProfile(
+    val h265: Boolean,
+    val width: Int,
+    val height: Int,
+    val cap: Cap? = null,
+    /** The panel's height in lines, for [Cap.SCREEN]. */
+    val panelLines: Int = 0
+) {
+    /** Why mirroring isn't offered in 4K. */
+    enum class Cap { SCREEN, DECODER, NEEDS_H265, NO_HW_DECODER }
+
+    val codec: String get() = if (h265) "H.265" else "H.264"
+    val upTo4k: Boolean get() = height >= UHD_HEIGHT
+
+    /** [cap] in English, e.g. "1080p screen"; the UI shows a translated one. */
+    val note: String?
+        get() = when (cap) {
+            Cap.SCREEN -> "${panelLines}p screen"
+            Cap.DECODER -> "decoder can't do 4K"
+            Cap.NEEDS_H265 -> "4K needs H.265"
+            Cap.NO_HW_DECODER -> "no hardware H.265 decoder for 4K"
+            null -> null
+        }
+
+    /** For logs and tests, e.g. "H.265 · up to 4K" or "H.264 · 1080p (1080p screen)". */
     val label: String
         get() {
-            val codec = if (h265) "H.265" else "H.264"
-            val size = if (height >= UHD_HEIGHT) "up to 4K" else "${height}p"
+            val size = if (upTo4k) "up to 4K" else "${height}p"
             return "$codec · $size" + (note?.let { " ($it)" } ?: "")
         }
 
@@ -67,15 +89,15 @@ data class MirroringProfile(val h265: Boolean, val width: Int, val height: Int, 
             // At 1080p senders send H.264 anyway, so offering H.265 there would change nothing.
             val h265 = hevcAllowed && hevc.uhd && height > FHD_HEIGHT
             val panel = minOf(panelWidth, panelHeight)
-            val note = when {
+            val cap = when {
                 settings.resolution != ReceiverSettings.RESOLUTION_AUTO || height >= UHD_HEIGHT -> null
                 panel <= 0 -> null
-                panel < UHD_HEIGHT -> "${panel}p screen"
-                hevcAllowed -> "decoder can't do 4K"
-                settings.videoCodec == ReceiverSettings.CODEC_H264_ONLY -> "4K needs H.265"
-                else -> "no hardware H.265 decoder for 4K"
+                panel < UHD_HEIGHT -> Cap.SCREEN
+                hevcAllowed -> Cap.DECODER
+                settings.videoCodec == ReceiverSettings.CODEC_H264_ONLY -> Cap.NEEDS_H265
+                else -> Cap.NO_HW_DECODER
             }
-            return MirroringProfile(h265, width, height, note)
+            return MirroringProfile(h265, width, height, cap, panel)
         }
     }
 }

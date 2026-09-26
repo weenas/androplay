@@ -13,6 +13,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.util.EventLogger
 import com.androplay.BuildConfig
+import com.androplay.R
 import com.androplay.protocol.AirPlayNative
 
 /**
@@ -251,17 +252,17 @@ class HlsPlayer(
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
             // The TV fetches the video itself, so a site the phone reaches only through a
             // proxy or VPN is unreachable here (e.g. googlevideo.com for YouTube).
-            "Couldn't reach the video server. The TV must be able to access the video site directly."
+            appContext.getString(R.string.error_video_unreachable)
         PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
         PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE ->
-            "The video server refused the request."
+            appContext.getString(R.string.error_video_refused)
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ->
-            "This TV can't play the video's format."
-        else -> "Video playback failed (${error.errorCodeName})."
+            appContext.getString(R.string.error_video_format)
+        else -> appContext.getString(R.string.error_video_failed, error.errorCodeName)
     }
 
     private fun release() {

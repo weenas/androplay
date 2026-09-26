@@ -17,6 +17,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.androplay.service.DacpClient
 import com.androplay.service.NowPlaying
 import com.androplay.service.StatsFormat
+import androidx.compose.ui.res.stringResource
+import com.androplay.R
+import com.androplay.ui.mirroringLabel
 import com.androplay.service.PictureLayout
 import com.androplay.service.ReceiverSettings
 import androidx.activity.compose.BackHandler
@@ -108,7 +111,7 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
             }
             if (backArmed) {
                 Text(
-                    "Press Back again to stop casting",
+                    stringResource(R.string.press_back_again),
                     color = Color.White,
                     fontSize = 20.sp,
                     modifier = Modifier
@@ -134,7 +137,7 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("AndroPlay") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     IconButton(onClick = { viewModel.navigateToSettings() }) {
                         Text("⚙")
@@ -178,7 +181,7 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
                     onStart = { viewModel.startServer() }
                 )
                 AirPlayConnectionState.Error -> ErrorScreen(
-                    error = state.errorMessage ?: "Unknown error",
+                    error = state.errorMessage ?: stringResource(R.string.unknown_error),
                     onRetry = { viewModel.startServer() }
                 )
             }
@@ -190,14 +193,14 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
 fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit) {
     HomeLayout(info = { ReceiverInfo(viewModel = viewModel) }) {
         Text(
-            text = "AndroPlay",
+            text = stringResource(R.string.app_name),
             fontSize = 48.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "AirPlay Receiver for Android TV",
+            text = stringResource(R.string.app_tagline),
             fontSize = 18.sp,
             color = Color.Gray
         )
@@ -206,7 +209,7 @@ fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit) {
             onClick = onStart,
             modifier = Modifier.width(200.dp).initialFocus()
         ) {
-            Text("Start", fontSize = 20.sp)
+            Text(stringResource(R.string.action_start), fontSize = 20.sp)
         }
     }
 }
@@ -215,24 +218,22 @@ fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit) {
 fun DiscoveringScreen(viewModel: AirPlayViewModel, lastError: String? = null, onStop: () -> Unit) {
     HomeLayout(info = { ReceiverInfo(viewModel = viewModel) }) {
         val settings by viewModel.settings.collectAsState()
-        Text("Waiting for a connection...", color = Color.White, fontSize = 28.sp)
+        Text(stringResource(R.string.waiting_title), color = Color.White, fontSize = 28.sp)
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "On iPhone or iPad: Control Center → Screen Mirroring → ${settings.deviceName}. " +
-                "In apps, tap the AirPlay icon" +
-                (if (settings.dlnaEnabled) ", or the app's own cast button (e.g. Bilibili)." else "."),
+            stringResource(if (settings.dlnaEnabled) R.string.waiting_how_dlna else R.string.waiting_how, settings.deviceName),
             color = Color.White,
             fontSize = 18.sp
         )
         Spacer(modifier = Modifier.height(4.dp))
-        Text("Your device must be on the same network as the TV.", color = Color.Gray, fontSize = 16.sp)
+        Text(stringResource(R.string.waiting_same_network), color = Color.Gray, fontSize = 16.sp)
         if (lastError != null) {
             // Why the last AirPlay video stopped, e.g. the TV couldn't reach the video site.
             Spacer(modifier = Modifier.height(16.dp))
             Text(lastError, color = Color(0xFFFFB4AB), fontSize = 18.sp)
         }
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
+        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text(stringResource(R.string.action_stop)) }
     }
 }
 
@@ -293,37 +294,38 @@ fun ReceiverInfo(viewModel: AirPlayViewModel) {
             .background(Color(0x1FFFFFFF))
             .padding(horizontal = 32.dp, vertical = 24.dp)
     ) {
-        InfoRow("Name", settings.deviceName)
-        InfoRow("Network", networkLabel(network))
+        InfoRow(stringResource(R.string.info_name), settings.deviceName)
+        InfoRow(stringResource(R.string.info_network), networkLabel(network))
         if (network.type == NetworkStatus.Type.WIFI && network.ssid == null) {
             if (!viewModel.canReadWifiName()) {
                 // Android only reveals the Wi-Fi name to apps with the location permission.
                 TextButton(onClick = { permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }) {
-                    Text("Show Wi-Fi name")
+                    Text(stringResource(R.string.show_wifi_name))
                 }
             } else {
-                Text("Turn on Location in the TV settings to show the Wi-Fi name.", color = Color.Gray, fontSize = 14.sp)
+                Text(stringResource(R.string.wifi_name_needs_location), color = Color.Gray, fontSize = 14.sp)
             }
         }
-        InfoRow("IP address", network.ipv4.joinToString(", ").ifEmpty { "—" })
+        InfoRow(stringResource(R.string.info_ip), network.ipv4.joinToString(", ").ifEmpty { "—" })
         val mirroring = remember(settings) { viewModel.mirroringProfile(settings) }
-        InfoRow("Mirroring", mirroring.label)
-        InfoRow("DLNA casting", if (settings.dlnaEnabled) "On (apps' cast button)" else "Off")
-        InfoRow("Password", if (settings.requirePassword) "Required" else "Not required")
-        InfoRow("Second device", if (settings.allowTakeover) "Takes over" else "Refused")
-        InfoRow("Version", viewModel.appVersion)
+        InfoRow(stringResource(R.string.info_mirroring), mirroringLabel(mirroring))
+        InfoRow(stringResource(R.string.info_dlna), stringResource(if (settings.dlnaEnabled) R.string.info_dlna_on else R.string.off))
+        InfoRow(stringResource(R.string.info_password), stringResource(if (settings.requirePassword) R.string.setting_password_on else R.string.setting_password_off))
+        InfoRow(stringResource(R.string.info_second_device), stringResource(if (settings.allowTakeover) R.string.info_takes_over else R.string.info_refused))
+        InfoRow(stringResource(R.string.info_version), viewModel.appVersion)
         if (network.type == NetworkStatus.Type.NONE) {
             Spacer(modifier = Modifier.height(12.dp))
-            Text("The TV is not connected to a network.", color = Color(0xFFFFB4AB), fontSize = 16.sp)
+            Text(stringResource(R.string.no_network), color = Color(0xFFFFB4AB), fontSize = 16.sp)
         }
     }
 }
 
+@Composable
 private fun networkLabel(network: NetworkStatus): String = when (network.type) {
-    NetworkStatus.Type.WIFI -> network.ssid?.let { "Wi-Fi · $it" } ?: "Wi-Fi"
-    NetworkStatus.Type.ETHERNET -> "Wired (Ethernet)"
-    NetworkStatus.Type.OTHER -> "Connected"
-    NetworkStatus.Type.NONE -> "Not connected"
+    NetworkStatus.Type.WIFI -> network.ssid?.let { stringResource(R.string.network_wifi_named, it) } ?: stringResource(R.string.network_wifi)
+    NetworkStatus.Type.ETHERNET -> stringResource(R.string.network_ethernet)
+    NetworkStatus.Type.OTHER -> stringResource(R.string.network_other)
+    NetworkStatus.Type.NONE -> stringResource(R.string.network_none)
 }
 
 @Composable
@@ -341,9 +343,9 @@ fun RegisteringScreen(onStop: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Publishing AndroPlay on the local network...", color = Color.White)
+        Text(stringResource(R.string.publishing), color = Color.White)
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
+        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text(stringResource(R.string.action_stop)) }
     }
 }
 
@@ -354,11 +356,11 @@ fun AdvertisingOnlyScreen(onStop: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("AndroPlay is visible on the local network", color = Color.White, fontSize = 26.sp)
+        Text(stringResource(R.string.advertising_only_title), color = Color.White, fontSize = 26.sp)
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Discovery preview only — AirPlay streaming is not available yet.", color = Color.Gray)
+        Text(stringResource(R.string.advertising_only_detail), color = Color.Gray)
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text("Stop") }
+        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text(stringResource(R.string.action_stop)) }
     }
 }
 
@@ -369,7 +371,7 @@ fun ConnectingScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Connecting...", color = Color.White)
+        Text(stringResource(R.string.connecting), color = Color.White)
     }
 }
 
@@ -381,14 +383,14 @@ fun ConnectedScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Connected", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(stringResource(R.string.connected), fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
-        Text("From: ${streamInfo.sourceName}", color = Color.Gray)
+        Text(stringResource(R.string.connected_from, streamInfo.sourceName), color = Color.Gray)
         Spacer(modifier = Modifier.height(8.dp))
         Text("${streamInfo.videoWidth}x${streamInfo.videoHeight}", color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = { viewModel.stopServer() }, modifier = Modifier.initialFocus()) {
-            Text("Stop", fontSize = 20.sp)
+            Text(stringResource(R.string.action_stop), fontSize = 20.sp)
         }
     }
 }
@@ -402,12 +404,12 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Streaming", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(stringResource(R.string.streaming), fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
-        Text("Source: ${streamInfo.sourceName}", color = Color.Gray)
+        Text(stringResource(R.string.streaming_source, streamInfo.sourceName), color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = { viewModel.stopServer() }, modifier = Modifier.initialFocus()) {
-            Text("Stop", fontSize = 20.sp)
+            Text(stringResource(R.string.action_stop), fontSize = 20.sp)
         }
     }
 }
@@ -462,7 +464,7 @@ fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Uni
             contentAlignment = Alignment.Center
         ) {
             if (cover != null) {
-                Image(bitmap = cover, contentDescription = "Cover art", contentScale = ContentScale.Crop,
+                Image(bitmap = cover, contentDescription = stringResource(R.string.cover_art), contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize())
             } else {
                 Text("♪", fontSize = 120.sp, color = Color.Gray)
@@ -470,7 +472,7 @@ fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Uni
         }
         Spacer(modifier = Modifier.width(64.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(nowPlaying.title ?: "AirPlay audio", fontSize = 40.sp, fontWeight = FontWeight.Bold,
+            Text(nowPlaying.title ?: stringResource(R.string.airplay_audio), fontSize = 40.sp, fontWeight = FontWeight.Bold,
                 color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
             nowPlaying.artist?.let {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -497,7 +499,7 @@ fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Uni
             }
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                (if (nowPlaying.playing) "OK: pause" else "OK: play") + "    ◀ ▶: previous / next",
+                stringResource(if (nowPlaying.playing) R.string.audio_hint_playing else R.string.audio_hint_paused),
                 fontSize = 16.sp,
                 color = Color(0xFF888888)
             )
@@ -697,10 +699,10 @@ fun DisconnectedScreen(onStart: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Disconnected", fontSize = 32.sp, color = Color.White)
+        Text(stringResource(R.string.disconnected), fontSize = 32.sp, color = Color.White)
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = onStart, modifier = Modifier.initialFocus()) {
-            Text("Start", fontSize = 20.sp)
+            Text(stringResource(R.string.action_start), fontSize = 20.sp)
         }
     }
 }
@@ -714,12 +716,12 @@ fun ErrorScreen(error: String, onRetry: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Error", fontSize = 32.sp, color = Color.Red)
+        Text(stringResource(R.string.error_title), fontSize = 32.sp, color = Color.Red)
         Spacer(modifier = Modifier.height(16.dp))
         Text(error, color = Color.Gray)
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = onRetry, modifier = Modifier.initialFocus()) {
-            Text("Retry", fontSize = 20.sp)
+            Text(stringResource(R.string.action_retry), fontSize = 20.sp)
         }
     }
 }
