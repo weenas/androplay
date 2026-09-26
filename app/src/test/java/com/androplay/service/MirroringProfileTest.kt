@@ -18,14 +18,14 @@ class MirroringProfileTest {
 
     @Test
     fun a1080pScreenStaysAt1080pAndSaysWhy() {
-        // H.265 still improves quality at 1080p; 4K would only be scaled down again.
-        assertEquals(Triple(true, 1920, 1080) to "H.265 · 1080p (1080p screen)", profile(ReceiverSettings(), hevc4k, 1920, 1080))
+        // Senders only send H.265 above 1080p, so a 1080p screen doesn't offer it (seen on a TCL TV).
+        assertEquals(Triple(false, 1920, 1080) to "H.264 · 1080p (1080p screen)", profile(ReceiverSettings(), hevc4k, 1920, 1080))
         assertEquals(Triple(false, 1920, 1080) to "H.264 · 1080p (1080p screen)", profile(ReceiverSettings(), none, 1920, 1080))
     }
 
     @Test
     fun a4kPanelWithoutA4kDecoderSaysWhy() {
-        assertEquals(Triple(true, 1920, 1080) to "H.265 · 1080p (decoder can't do 4K)", profile(ReceiverSettings(), hevc1080, 3840, 2160))
+        assertEquals(Triple(false, 1920, 1080) to "H.264 · 1080p (decoder can't do 4K)", profile(ReceiverSettings(), hevc1080, 3840, 2160))
         assertEquals(Triple(false, 1920, 1080) to "H.264 · 1080p (no hardware H.265 decoder for 4K)", profile(ReceiverSettings(), none, 3840, 2160))
         val h264Only = ReceiverSettings(videoCodec = ReceiverSettings.CODEC_H264_ONLY)
         assertEquals(Triple(false, 1920, 1080) to "H.264 · 1080p (4K needs H.265)", profile(h264Only, hevc4k, 3840, 2160))
@@ -33,7 +33,7 @@ class MirroringProfileTest {
 
     @Test
     fun explicitResolutionsWinWithoutANote() {
-        assertEquals(Triple(true, 1920, 1080) to "H.265 · 1080p", profile(ReceiverSettings(resolution = "1080p"), hevc4k, 3840, 2160))
-        assertEquals(Triple(true, 1280, 720) to "H.265 · 720p", profile(ReceiverSettings(resolution = "720p"), hevc4k, 3840, 2160))
+        assertEquals(Triple(false, 1920, 1080) to "H.264 · 1080p", profile(ReceiverSettings(resolution = "1080p"), hevc4k, 3840, 2160))
+        assertEquals(Triple(false, 1280, 720) to "H.264 · 720p", profile(ReceiverSettings(resolution = "720p"), hevc4k, 3840, 2160))
     }
 }
