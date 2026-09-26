@@ -21,8 +21,9 @@ android {
         applicationId = "com.androplay"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // Bumped for every build installed on a test TV; the name's last part matches versionCode.
+        versionCode = 18
+        versionName = "1.0.18"
 
         if (enableNativeBuild.get()) {
             externalNativeBuild {
