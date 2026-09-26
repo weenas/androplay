@@ -22,6 +22,9 @@ import androidx.media3.common.Tracks
 import com.androplay.service.MediaTracks
 import com.androplay.service.ReceiverSettings
 import com.androplay.viewmodel.AirPlayViewModel
+import androidx.compose.ui.res.stringResource
+import com.androplay.R
+import com.androplay.ui.settingValueLabel
 
 /**
  * Settings that apply while something plays, opened with the remote's Down or Menu key and
@@ -58,17 +61,17 @@ fun QuickMenu(viewModel: AirPlayViewModel, hasPicture: Boolean, player: Player?,
             .padding(vertical = 16.dp)
     ) {
         Text(
-            "Playback",
+            stringResource(R.string.menu_title),
             color = Color.White,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
         )
-        MenuRow("Playback stats", if (settings.showStats) "On" else "Off", Modifier.focusRequester(firstRow)) {
+        MenuRow(stringResource(R.string.menu_stats), stringResource(if (settings.showStats) R.string.on else R.string.off), Modifier.focusRequester(firstRow)) {
             viewModel.updateSettings { it.copy(showStats = !it.showStats) }
         }
         if (hasPicture) {
-            MenuRow("Picture", settings.pictureMode) {
+            MenuRow(stringResource(R.string.menu_picture), settingValueLabel(settings.pictureMode)) {
                 val modes = ReceiverSettings.PICTURE_MODES
                 viewModel.updateSettings {
                     it.copy(pictureMode = modes[(modes.indexOf(it.pictureMode) + 1) % modes.size])
@@ -76,18 +79,18 @@ fun QuickMenu(viewModel: AirPlayViewModel, hasPicture: Boolean, player: Player?,
             }
         }
         if (player != null && audioChoices.size > 1) {
-            MenuRow("Audio", audioChoices.firstOrNull { it.selected }?.label ?: "Auto") {
+            MenuRow(stringResource(R.string.menu_audio), audioChoices.firstOrNull { it.selected }?.label ?: stringResource(R.string.auto)) {
                 MediaTracks.next(audioChoices)?.let { MediaTracks.select(player, C.TRACK_TYPE_AUDIO, it) }
             }
         }
         if (player != null && subtitleChoices.isNotEmpty()) {
-            MenuRow("Subtitles", subtitleChoices.firstOrNull { it.selected }?.label ?: "Off") {
+            MenuRow(stringResource(R.string.menu_subtitles), subtitleChoices.firstOrNull { it.selected && it.group != null }?.label ?: stringResource(R.string.off)) {
                 MediaTracks.next(subtitleChoices)?.let { MediaTracks.select(player, C.TRACK_TYPE_TEXT, it) }
             }
         }
-        MenuRow("Stop casting", "") { viewModel.endCasting() }
+        MenuRow(stringResource(R.string.menu_stop_casting), "") { viewModel.endCasting() }
         Text(
-            "OK: change    Back: close",
+            stringResource(R.string.menu_hint),
             color = Color(0xFF9E9E9E),
             fontSize = 14.sp,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)

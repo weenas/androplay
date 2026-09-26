@@ -6,7 +6,7 @@ import android.view.Surface
 import androidx.media3.exoplayer.ExoPlayer
 import com.androplay.protocol.VideoPlaybackListener
 
-class AirPlayManager private constructor(context: Context) {
+class AirPlayManager private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "AirPlayManager"
@@ -264,7 +264,7 @@ class AirPlayManager private constructor(context: Context) {
                 },
                 onError = ::onNativeError
             )) {
-            currentError = "Could not start local network discovery"
+            currentError = context.getString(com.androplay.R.string.error_discovery)
             currentState = AirPlayConnectionState.Error
             return false
         }

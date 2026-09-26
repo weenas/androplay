@@ -25,7 +25,7 @@ class AirPlayService : Service() {
         if (running) {
             when (state) {
                 AirPlayConnectionState.AdvertisingOnly -> getSystemService(NotificationManager::class.java)
-                    .notify(NOTIFICATION_ID, buildNotification("Discoverable only — streaming unavailable"))
+                    .notify(NOTIFICATION_ID, buildNotification(getString(com.androplay.R.string.notification_discoverable_only)))
                 AirPlayConnectionState.Error -> {
                     running = false
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -51,7 +51,7 @@ class AirPlayService : Service() {
         }
         if (running) return START_NOT_STICKY
 
-        startForeground(NOTIFICATION_ID, buildNotification("Starting receiver"))
+        startForeground(NOTIFICATION_ID, buildNotification(getString(com.androplay.R.string.notification_starting)))
         val settings = ReceiverSettingsStore(this).load()
         if (!manager.start(settings)) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -61,7 +61,10 @@ class AirPlayService : Service() {
         running = true
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification(
-                if (manager.isDiscoveryOnly) "Publishing AirPlay discovery" else "Waiting for AirPlay connection"
+                getString(
+                    if (manager.isDiscoveryOnly) com.androplay.R.string.notification_discovery_only
+                    else com.androplay.R.string.notification_waiting
+                )
             ))
         return START_NOT_STICKY
     }
@@ -78,7 +81,7 @@ class AirPlayService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "AndroPlay Service",
+                getString(com.androplay.R.string.notification_channel),
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -94,7 +97,7 @@ class AirPlayService : Service() {
         )
 
         return Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("AndroPlay")
+            .setContentTitle(getString(com.androplay.R.string.app_name))
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)

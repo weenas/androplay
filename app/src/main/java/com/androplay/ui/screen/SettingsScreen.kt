@@ -13,6 +13,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.androplay.service.ReceiverSettings
+import androidx.compose.ui.res.stringResource
+import com.androplay.R
+import com.androplay.ui.mirroringLabel
+import com.androplay.ui.settingValueLabel
 import com.androplay.viewmodel.AirPlayViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -22,7 +26,7 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Text("←") }
                 }
@@ -38,60 +42,55 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
             // Connection settings change what senders see, so the receiver restarts for them;
             // playback settings apply live and are also in the quick menu during playback.
             item {
-                SectionHeader(
-                    "Connection",
-                    "Changing these restarts the receiver; connected devices need to reconnect."
-                )
+                SectionHeader(stringResource(R.string.section_connection), stringResource(R.string.section_connection_note))
                 DeviceNameSetting(value = settings.deviceName) { name ->
                     viewModel.updateSettings { it.copy(deviceName = name) }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            item { ChoiceSetting("Mirroring Resolution", settings.resolution, ReceiverSettings.RESOLUTIONS) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
-            item { ChoiceSetting("Mirroring Frame Rate", settings.frameRate, ReceiverSettings.FRAME_RATES) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
+            item { ChoiceSetting(stringResource(R.string.setting_resolution), settings.resolution, ReceiverSettings.RESOLUTIONS) { viewModel.updateSettings { current -> current.copy(resolution = it) } } }
+            item { ChoiceSetting(stringResource(R.string.setting_frame_rate), settings.frameRate, ReceiverSettings.FRAME_RATES) { viewModel.updateSettings { current -> current.copy(frameRate = it) } } }
             item {
-                ChoiceSetting("Mirroring Codec", settings.videoCodec, ReceiverSettings.VIDEO_CODECS) {
+                ChoiceSetting(stringResource(R.string.setting_codec), settings.videoCodec, ReceiverSettings.VIDEO_CODECS) {
                     viewModel.updateSettings { current -> current.copy(videoCodec = it) }
                 }
             }
             item {
                 // Auto only offers H.265 for 4K mirroring on a 4K screen with a hardware HEVC decoder.
                 Text(
-                    "This TV: ${viewModel.mirroringProfile(settings).label}",
+                    stringResource(R.string.setting_this_tv, mirroringLabel(viewModel.mirroringProfile(settings))),
                     color = Color.Gray,
                     fontSize = 14.sp
                 )
             }
             item {
-                SwitchSetting("DLNA casting (apps' cast button)", settings.dlnaEnabled) { enabled ->
+                SwitchSetting(stringResource(R.string.setting_dlna), settings.dlnaEnabled) { enabled ->
                     viewModel.updateSettings { it.copy(dlnaEnabled = enabled) }
                 }
             }
             item { AccessSetting(settings, viewModel) }
             item {
                 ChoiceSetting(
-                    "When another device casts",
+                    stringResource(R.string.setting_takeover),
                     if (settings.allowTakeover) TAKEOVER_ALLOW else TAKEOVER_REFUSE,
-                    listOf(TAKEOVER_REFUSE, TAKEOVER_ALLOW)
+                    listOf(TAKEOVER_REFUSE, TAKEOVER_ALLOW),
+                    display = { stringResource(if (it == TAKEOVER_ALLOW) R.string.setting_takeover_allow else R.string.setting_takeover_refuse) }
                 ) { choice -> viewModel.updateSettings { it.copy(allowTakeover = choice == TAKEOVER_ALLOW) } }
             }
             item {
-                SectionHeader(
-                    "Playback",
-                    "These apply right away. While casting, press Down or Menu on the remote to change them."
-                )
-                SwitchSetting("Show playback stats", settings.showStats) { enabled ->
+                SectionHeader(stringResource(R.string.section_playback), stringResource(R.string.section_playback_note))
+                SwitchSetting(stringResource(R.string.setting_stats), settings.showStats) { enabled ->
                     viewModel.updateSettings { it.copy(showStats = enabled) }
                 }
             }
             item {
-                ChoiceSetting("Picture", settings.pictureMode, ReceiverSettings.PICTURE_MODES) {
+                ChoiceSetting(stringResource(R.string.setting_picture), settings.pictureMode, ReceiverSettings.PICTURE_MODES) {
                     viewModel.updateSettings { current -> current.copy(pictureMode = it) }
                 }
             }
             item {
-                SectionHeader("System", null)
-                SwitchSetting("Start when the TV turns on", settings.startOnBoot) { enabled ->
+                SectionHeader(stringResource(R.string.section_system), null)
+                SwitchSetting(stringResource(R.string.setting_start_on_boot), settings.startOnBoot) { enabled ->
                     viewModel.updateSettings { it.copy(startOnBoot = enabled) }
                 }
             }
@@ -108,24 +107,31 @@ private fun SectionHeader(title: String, note: String?) {
 }
 
 @Composable
-fun ChoiceSetting(label: String, value: String, choices: List<String>, onSelected: (String) -> Unit) {
+fun ChoiceSetting(
+    label: String,
+    value: String,
+    choices: List<String>,
+    /** How a stored value is shown, in the TV's language. */
+    display: @Composable (String) -> String = { settingValueLabel(it) },
+    onSelected: (String) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        SettingsRow(label, value, Modifier.fillMaxWidth().padding(vertical = 12.dp).clickable { expanded = true })
+        SettingsRow(label, display(value), Modifier.fillMaxWidth().padding(vertical = 12.dp).clickable { expanded = true })
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            choices.forEach { choice -> DropdownMenuItem(text = { Text(choice) }, onClick = { onSelected(choice); expanded = false }) }
+            choices.forEach { choice -> DropdownMenuItem(text = { Text(display(choice)) }, onClick = { onSelected(choice); expanded = false }) }
         }
     }
 }
 
 @Composable
-fun DeviceNameSetting(label: String = "Device Name", value: String, isPassword: Boolean = false, onSaved: (String) -> Unit) {
+fun DeviceNameSetting(label: String = stringResource(R.string.setting_device_name), value: String, isPassword: Boolean = false, onSaved: (String) -> Unit) {
     var editing by remember(value) { mutableStateOf(value) }
     OutlinedTextField(value = editing, onValueChange = { editing = it }, label = { Text(label) }, singleLine = true,
         visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = if (isPassword) androidx.compose.ui.text.input.KeyboardType.NumberPassword else androidx.compose.ui.text.input.KeyboardType.Text),
         modifier = Modifier.fillMaxWidth(),
-        trailingIcon = { TextButton(onClick = { onSaved(editing) }) { Text("Save") } })
+        trailingIcon = { TextButton(onClick = { onSaved(editing) }) { Text(stringResource(R.string.action_save)) } })
 }
 
 private const val ACCESS_OPEN = "Not required"
@@ -141,9 +147,10 @@ private const val TAKEOVER_ALLOW = "Let it take over"
 fun AccessSetting(settings: ReceiverSettings, viewModel: AirPlayViewModel) {
     var choosingPassword by remember { mutableStateOf(false) }
     ChoiceSetting(
-        "Casting password",
+        stringResource(R.string.setting_password),
         if (settings.requirePassword) ACCESS_PASSWORD else ACCESS_OPEN,
-        listOf(ACCESS_OPEN, ACCESS_PASSWORD)
+        listOf(ACCESS_OPEN, ACCESS_PASSWORD),
+        display = { stringResource(if (it == ACCESS_PASSWORD) R.string.setting_password_on else R.string.setting_password_off) }
     ) { choice ->
         if (choice == ACCESS_OPEN) {
             choosingPassword = false
@@ -170,11 +177,11 @@ fun PinSetting(value: String, onSaved: (String) -> Unit) {
     OutlinedTextField(
         value = editing,
         onValueChange = { editing = it.filter(Char::isDigit) },
-        label = { Text("Password") },
+        label = { Text(stringResource(R.string.setting_password_field)) },
         supportingText = {
             Text(
-                if (invalid) "Use at least ${ReceiverSettings.MIN_PIN_LENGTH} digits."
-                else "Devices must enter this to AirPlay to the TV."
+                if (invalid) stringResource(R.string.setting_password_too_short, ReceiverSettings.MIN_PIN_LENGTH)
+                else stringResource(R.string.setting_password_help)
             )
         },
         isError = invalid && editing.isNotEmpty(),
@@ -184,7 +191,7 @@ fun PinSetting(value: String, onSaved: (String) -> Unit) {
             keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
         ),
         modifier = Modifier.fillMaxWidth(),
-        trailingIcon = { TextButton(onClick = { onSaved(editing) }, enabled = !invalid) { Text("Save") } }
+        trailingIcon = { TextButton(onClick = { onSaved(editing) }, enabled = !invalid) { Text(stringResource(R.string.action_save)) } }
     )
 }
 

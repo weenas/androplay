@@ -1,5 +1,7 @@
 package com.androplay.ui.screen
 
+import androidx.compose.ui.res.stringResource
+import com.androplay.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -18,7 +20,7 @@ fun AboutScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("About") },
+                title = { Text(stringResource(R.string.about)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Text("←") }
                 }
@@ -34,21 +36,21 @@ fun AboutScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "AndroPlay",
+                text = stringResource(R.string.app_name),
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "AirPlay Receiver for Android TV",
+                text = stringResource(R.string.app_tagline),
                 fontSize = 18.sp,
                 color = Color.Gray
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Version 1.0.0", color = Color.Gray)
+            Text(stringResource(R.string.about_version, com.androplay.BuildConfig.VERSION_NAME), color = Color.Gray)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Powered by UxPlay (GPL-3.0)", color = Color.Gray)
+            Text(stringResource(R.string.about_powered_by), color = Color.Gray)
         }
     }
 }
