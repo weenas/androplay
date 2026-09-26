@@ -71,6 +71,7 @@
     <string name="menu_audio">Audio</string>
     <string name="menu_subtitles">Subtitles</string>
     <string name="menu_stop_casting">Stop casting</string>
+    <string name="menu_lyrics">Lyrics</string>
     <string name="menu_hint">OK: change    Back: close</string>
     <string name="picture_fit">Fit</string>
     <string name="picture_fill">Fill</string>
@@ -100,6 +101,8 @@
     <string name="setting_takeover_allow">Let it take over</string>
     <string name="setting_stats">Show playback stats</string>
     <string name="setting_picture">Picture</string>
+    <string name="setting_lyrics">Show lyrics for music</string>
+    <string name="setting_lyrics_note">Looks up lyrics on lrclib.net by the song\'s title and artist.</string>
     <string name="setting_start_on_boot">Start when the TV turns on</string>
     <string name="frame_rate_fps">%1$d FPS</string>
 

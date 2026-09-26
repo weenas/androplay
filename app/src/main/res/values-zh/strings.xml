@@ -70,6 +70,7 @@
     <string name="menu_audio">音轨</string>
     <string name="menu_subtitles">字幕</string>
     <string name="menu_stop_casting">结束投屏</string>
+    <string name="menu_lyrics">歌词</string>
     <string name="menu_hint">OK：切换    返回：关闭</string>
     <string name="picture_fit">适应</string>
     <string name="picture_fill">填充</string>
@@ -99,6 +100,8 @@
     <string name="setting_takeover_allow">让它接管</string>
     <string name="setting_stats">显示播放统计信息</string>
     <string name="setting_picture">画面</string>
+    <string name="setting_lyrics">播放音乐时显示歌词</string>
+    <string name="setting_lyrics_note">会把歌名和歌手发送到 lrclib.net 查询歌词。</string>
     <string name="setting_start_on_boot">电视开机时自动启动</string>
     <string name="frame_rate_fps">%1$d 帧/秒</string>
 

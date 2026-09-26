@@ -17,6 +17,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.androplay.service.DacpClient
 import com.androplay.service.NowPlaying
 import com.androplay.service.StatsFormat
+import com.androplay.service.Lyrics
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
 import com.androplay.R
 import com.androplay.ui.mirroringLabel
@@ -103,7 +107,20 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
             val contentModifier = Modifier.focusRequester(contentFocus)
             when (kind) {
                 StreamKind.VIDEO -> VideoPlayback(viewModel = viewModel, pictureMode = settings.pictureMode, modifier = contentModifier)
-                StreamKind.AUDIO -> AudioPlayback(nowPlaying = stream.nowPlaying, onCommand = viewModel::remoteControl, modifier = contentModifier)
+                StreamKind.AUDIO -> {
+                    val song = stream.nowPlaying
+                    // Waits a moment before looking up: the length usually arrives after the title.
+                    val lyrics by produceState<Lyrics?>(null, settings.showLyrics, song.title, song.artist, song.durationSec.toInt()) {
+                        value = null
+                        val title = song.title
+                        if (!settings.showLyrics || title.isNullOrBlank()) return@produceState
+                        delay(LYRICS_LOOKUP_DELAY_MS)
+                        value = withContext(Dispatchers.IO) {
+                            viewModel.findLyrics(title, song.artist, song.album, song.durationSec)
+                        }
+                    }
+                    AudioPlayback(nowPlaying = song, onCommand = viewModel::remoteControl, lyrics = lyrics, modifier = contentModifier)
+                }
                 StreamKind.MIRRORING -> MirroringVideo(viewModel = viewModel, streamInfo = stream, pictureMode = settings.pictureMode, modifier = contentModifier)
             }
             if (settings.showStats) {
@@ -419,16 +436,22 @@ fun StreamingScreen(viewModel: AirPlayViewModel, streamInfo: com.androplay.servi
  * OK and left/right keys control the sender; media keys reach it through the media session.
  */
 @Composable
-fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Unit, modifier: Modifier = Modifier) {
+fun AudioPlayback(
+    nowPlaying: NowPlaying,
+    onCommand: (DacpClient.Command) -> Unit,
+    lyrics: Lyrics? = null,
+    modifier: Modifier = Modifier
+) {
     val cover = remember(nowPlaying.coverArt) {
         nowPlaying.coverArt?.let { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }
     }
     // Ticks the progress between the sender's (infrequent) reports.
     var now by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
-    LaunchedEffect(nowPlaying) {
+    LaunchedEffect(nowPlaying, lyrics != null) {
         while (true) {
             now = SystemClock.elapsedRealtime()
-            delay(500)
+            // Lyrics lines change faster than the progress bar needs.
+            delay(if (lyrics != null) 200 else 500)
         }
     }
     val view = LocalView.current
@@ -482,6 +505,10 @@ fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Uni
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(it, fontSize = 20.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (lyrics != null) {
+                Spacer(modifier = Modifier.height(24.dp))
+                LyricsView(lyrics, nowPlaying.currentPositionSec(now))
+            }
             if (nowPlaying.durationSec > 0) {
                 val position = nowPlaying.currentPositionSec(now)
                 Spacer(modifier = Modifier.height(40.dp))
@@ -506,6 +533,31 @@ fun AudioPlayback(nowPlaying: NowPlaying, onCommand: (DacpClient.Command) -> Uni
         }
     }
 }
+
+/** A few lines of [lyrics] around the one being sung at [positionSec], which is highlighted. */
+@Composable
+private fun LyricsView(lyrics: Lyrics, positionSec: Double) {
+    val current = lyrics.indexAt(positionSec)
+    val first = (current - LYRICS_CONTEXT_LINES).coerceAtLeast(0)
+    Column(modifier = Modifier.height(190.dp)) {
+        for (index in first..(current + LYRICS_CONTEXT_LINES).coerceAtMost(lyrics.lines.lastIndex)) {
+            val line = lyrics.lines[index].text.ifEmpty { "♪" }
+            val active = index == current
+            Text(
+                line,
+                fontSize = if (active) 24.sp else 20.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                color = if (active) Color.White else Color(0xFF8A8A8A),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(vertical = 3.dp)
+            )
+        }
+    }
+}
+
+private const val LYRICS_CONTEXT_LINES = 2
+private const val LYRICS_LOOKUP_DELAY_MS = 1500L
 
 private fun formatTime(seconds: Double): String {
     val total = seconds.toInt().coerceAtLeast(0)

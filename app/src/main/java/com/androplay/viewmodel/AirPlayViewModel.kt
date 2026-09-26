@@ -75,6 +75,12 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleVideoPause() = manager.toggleVideoPause()
 
+    private val lyricsClient = com.androplay.service.LyricsClient()
+
+    /** Synced lyrics for a song, or null; looked up online, so call off the main thread. */
+    fun findLyrics(title: String, artist: String?, album: String?, durationSec: Double) =
+        lyricsClient.find(title, artist, album, durationSec)
+
     /** Stops the current cast from the TV; the receiver keeps waiting for the next one. */
     fun endCasting() = manager.endCasting()
 

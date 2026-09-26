@@ -24,7 +24,9 @@ data class ReceiverSettings(
     /** Show a "stats for nerds" overlay (codec, resolution, bitrate, ...) while playing. */
     val showStats: Boolean = false,
     /** How mirroring and AirPlay video fill the screen: [PICTURE_FIT], [PICTURE_FILL] or [PICTURE_STRETCH]. */
-    val pictureMode: String = PICTURE_FIT
+    val pictureMode: String = PICTURE_FIT,
+    /** Look up and show synced lyrics for AirPlay music (sends the song's title to lrclib.net). */
+    val showLyrics: Boolean = false
 ) {
     /**
      * The display size advertised to senders, which they size mirroring to. "Auto" is the
@@ -54,7 +56,7 @@ data class ReceiverSettings(
     fun needsRestartComparedTo(previous: ReceiverSettings): Boolean =
         withoutLiveSettings() != previous.withoutLiveSettings()
 
-    private fun withoutLiveSettings() = copy(startOnBoot = false, showStats = false, pictureMode = PICTURE_FIT)
+    private fun withoutLiveSettings() = copy(startOnBoot = false, showStats = false, pictureMode = PICTURE_FIT, showLyrics = false)
 
     /** Frames per second senders may mirror at. "Auto" is 60: TVs decode in hardware. */
     fun maxFps(): Int = if (frameRate == "30 FPS") 30 else 60
@@ -106,7 +108,8 @@ class ReceiverSettingsStore(context: Context) {
         startOnBoot = preferences.getBoolean("start_on_boot", true),
         showStats = preferences.getBoolean("show_stats", false),
         pictureMode = preferences.getString("picture_mode", null)
-            ?.takeIf { it in ReceiverSettings.PICTURE_MODES } ?: ReceiverSettings.PICTURE_FIT
+            ?.takeIf { it in ReceiverSettings.PICTURE_MODES } ?: ReceiverSettings.PICTURE_FIT,
+        showLyrics = preferences.getBoolean("show_lyrics", false)
     )
 
     fun save(settings: ReceiverSettings) {
@@ -122,6 +125,7 @@ class ReceiverSettingsStore(context: Context) {
             .putBoolean("start_on_boot", settings.startOnBoot)
             .putBoolean("show_stats", settings.showStats)
             .putString("picture_mode", settings.pictureMode)
+            .putBoolean("show_lyrics", settings.showLyrics)
             .remove("audio_latency")
             .apply()
     }
