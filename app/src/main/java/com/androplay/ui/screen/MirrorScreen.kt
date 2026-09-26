@@ -547,11 +547,11 @@ fun AudioPlayback(
                     fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 nowPlaying.artist?.let {
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text(it, fontSize = 26.sp, color = Color(0xFFDDDDDD), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it, fontSize = 26.sp, color = MUSIC_TEXT_SECONDARY, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 nowPlaying.album?.let {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(it, fontSize = 20.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it, fontSize = 20.sp, color = MUSIC_TEXT_TERTIARY, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (lyrics != null) {
                     Spacer(modifier = Modifier.height(24.dp))
@@ -568,13 +568,16 @@ fun AudioPlayback(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(formatTime(position), fontSize = 18.sp, color = Color.Gray)
-                        Text(formatTime(nowPlaying.durationSec), fontSize = 18.sp, color = Color.Gray)
+                        Text(formatTime(position), fontSize = 18.sp, color = MUSIC_TEXT_TERTIARY)
+                        Text(formatTime(nowPlaying.durationSec), fontSize = 18.sp, color = MUSIC_TEXT_TERTIARY)
                     }
                 }
                 Spacer(modifier = Modifier.height(32.dp))
-                // The screen's focus (and so the remote's OK) starts on play/pause.
-                MusicControls(nowPlaying.playing, onCommand, onSkip, playModifier = modifier)
+                // Centred under the progress bar, as in Apple Music. The screen's focus (and so
+                // the remote's OK) starts on play/pause.
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    MusicControls(nowPlaying.playing, onCommand, onSkip, playModifier = modifier)
+                }
             }
         }
     }
@@ -637,6 +640,12 @@ private fun MediaButton(
 }
 
 private val MEDIA_BUTTON_SIZE = 60.dp
+/**
+ * Secondary text on the music screen: translucent white rather than grey, so it keeps its
+ * contrast and picks up the tint of the cover's backdrop, as in Apple Music.
+ */
+private val MUSIC_TEXT_SECONDARY = Color.White.copy(alpha = 0.85f)
+private val MUSIC_TEXT_TERTIARY = Color.White.copy(alpha = 0.6f)
 private val PLAY_BUTTON_SIZE = 80.dp
 
 /**
@@ -690,7 +699,7 @@ private fun LyricsView(lyrics: Lyrics, positionSec: Double) {
                 line,
                 fontSize = if (active) 24.sp else 20.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                color = if (active) Color.White else Color(0xFF8A8A8A),
+                color = if (active) Color.White else MUSIC_TEXT_TERTIARY,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(vertical = 3.dp)

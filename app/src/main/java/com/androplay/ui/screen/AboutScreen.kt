@@ -48,7 +48,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 color = Color.Gray
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Text(stringResource(R.string.about_version, com.androplay.BuildConfig.VERSION_NAME), color = Color.Gray)
+            Text(stringResource(R.string.about_version, com.androplay.util.AppVersion.name(androidx.compose.ui.platform.LocalContext.current)), color = Color.Gray)
             Spacer(modifier = Modifier.height(8.dp))
             Text(stringResource(R.string.about_powered_by), color = Color.Gray)
         }
