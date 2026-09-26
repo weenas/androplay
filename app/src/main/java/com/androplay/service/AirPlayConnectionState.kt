@@ -29,5 +29,7 @@ data class StreamInfo(
     val isVideoPlayback: Boolean = false,
     /** Audio streaming without video (e.g. a music app); [nowPlaying] describes it. */
     val isAudioOnly: Boolean = false,
+    /** Cast over DLNA (video, or music with [isAudioOnly]) rather than AirPlay. */
+    val isDlna: Boolean = false,
     val nowPlaying: NowPlaying = NowPlaying()
 )

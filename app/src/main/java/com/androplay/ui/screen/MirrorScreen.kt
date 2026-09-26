@@ -149,6 +149,7 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
                         nowPlaying = song,
                         onCommand = viewModel::remoteControl,
                         onSkip = viewModel::skipMusic,
+                        canChangeTrack = !stream.isDlna,
                         lyrics = lyrics,
                         modifier = contentModifier
                     )
@@ -502,6 +503,8 @@ fun AudioPlayback(
     onCommand: (DacpClient.Command) -> Unit,
     /** Skips about ten seconds forward (true) or back. */
     onSkip: (Boolean) -> Unit,
+    /** Previous/next track: AirPlay senders can; a DLNA sender's playlist is its own. */
+    canChangeTrack: Boolean = true,
     lyrics: Lyrics? = null,
     modifier: Modifier = Modifier
 ) {
@@ -588,7 +591,7 @@ fun AudioPlayback(
                 // Centred under the progress bar, as in Apple Music. The screen's focus (and so
                 // the remote's OK) starts on play/pause.
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    MusicControls(nowPlaying.playing, onCommand, onSkip, playModifier = modifier)
+                    MusicControls(nowPlaying.playing, onCommand, onSkip, canChangeTrack, playModifier = modifier)
                 }
             }
         }
@@ -604,12 +607,15 @@ private fun MusicControls(
     playing: Boolean,
     onCommand: (DacpClient.Command) -> Unit,
     onSkip: (Boolean) -> Unit,
+    canChangeTrack: Boolean,
     playModifier: Modifier
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
         MediaButton(MediaIcons.Rewind, R.string.music_rewind, MEDIA_BUTTON_SIZE) { onSkip(false) }
-        MediaButton(MediaIcons.Previous, R.string.music_previous, MEDIA_BUTTON_SIZE) {
-            onCommand(DacpClient.Command.PREVIOUS)
+        if (canChangeTrack) {
+            MediaButton(MediaIcons.Previous, R.string.music_previous, MEDIA_BUTTON_SIZE) {
+                onCommand(DacpClient.Command.PREVIOUS)
+            }
         }
         MediaButton(
             if (playing) MediaIcons.Pause else MediaIcons.Play,
@@ -617,7 +623,9 @@ private fun MusicControls(
             PLAY_BUTTON_SIZE,
             playModifier
         ) { onCommand(DacpClient.Command.PLAY_PAUSE) }
-        MediaButton(MediaIcons.Next, R.string.music_next, MEDIA_BUTTON_SIZE) { onCommand(DacpClient.Command.NEXT) }
+        if (canChangeTrack) {
+            MediaButton(MediaIcons.Next, R.string.music_next, MEDIA_BUTTON_SIZE) { onCommand(DacpClient.Command.NEXT) }
+        }
         MediaButton(MediaIcons.FastForward, R.string.music_fast_forward, MEDIA_BUTTON_SIZE) { onSkip(true) }
     }
 }
