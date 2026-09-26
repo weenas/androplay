@@ -44,7 +44,7 @@ Not done yet: audio-only AirPlay (music apps send ALAC, which Android has no bui
 
 ```bash
 # Clone protocol dependencies with the repository
-git clone --recurse-submodules git@github.com:weenas/androplay.git
+git clone --recurse-submodules git@github.com:weenas/castbay.git
 cd CastBay
 
 # Build (requires JDK 17-21, Android SDK 35, NDK 27.0.12077973, and CMake 3.22.1;

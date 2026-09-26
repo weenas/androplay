@@ -73,7 +73,7 @@ class LyricsClient(private val appVersion: String) {
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS
             // LRCLIB asks clients to identify themselves.
-            connection.setRequestProperty("User-Agent", "CastBay/$appVersion (https://github.com/weenas/androplay)")
+            connection.setRequestProperty("User-Agent", "CastBay/$appVersion (https://github.com/weenas/castbay)")
             when (connection.responseCode) {
                 HttpURLConnection.HTTP_OK -> connection.inputStream.bufferedReader().use { it.readText() }
                 HttpURLConnection.HTTP_NOT_FOUND -> null
