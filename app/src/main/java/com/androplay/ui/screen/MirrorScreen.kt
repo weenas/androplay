@@ -24,6 +24,10 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
 import com.androplay.R
 import com.androplay.ui.mirroringLabel
+import com.androplay.ui.AppBackground
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import com.androplay.service.PictureLayout
 import com.androplay.service.ReceiverSettings
 import androidx.activity.compose.BackHandler
@@ -151,22 +155,10 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
         return
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                actions = {
-                    IconButton(onClick = { viewModel.navigateToSettings() }) {
-                        Text("⚙")
-                    }
-                }
-            )
-        }
-    ) { padding ->
+    // No app bar: the name is on screen already, and Settings sits beside the main button.
+    AppBackground {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             when (state.connectionState) {
@@ -179,8 +171,12 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
                     lastError = state.errorMessage,
                     onStop = { viewModel.stopServer() }
                 )
-                AirPlayConnectionState.Registering -> RegisteringScreen(
-                    onStop = { viewModel.stopServer() }
+                // Same screen as Idle, with the button saying "Starting…", so starting doesn't
+                // flash an extra screen before the waiting one.
+                AirPlayConnectionState.Registering -> IdleScreen(
+                    viewModel = viewModel,
+                    onStart = {},
+                    starting = true
                 )
                 AirPlayConnectionState.AdvertisingOnly -> AdvertisingOnlyScreen(
                     onStop = { viewModel.stopServer() }
@@ -206,8 +202,20 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
     }
 }
 
+private const val START_TIMEOUT_MS = 10_000L
+
+/** [starting]: the receiver is starting; the button reads "Starting…" until it is ready. */
 @Composable
-fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit) {
+fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit, starting: Boolean = false) {
+    // Shown right on the press: the service reports "starting" a moment later.
+    var pressed by remember { mutableStateOf(false) }
+    LaunchedEffect(pressed) {
+        // In case the service never reports back, don't stay "Starting…" forever.
+        if (pressed) {
+            delay(START_TIMEOUT_MS)
+            pressed = false
+        }
+    }
     HomeLayout(info = { ReceiverInfo(viewModel = viewModel) }) {
         Text(
             text = stringResource(R.string.app_name),
@@ -222,11 +230,18 @@ fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit) {
             color = Color.Gray
         )
         Spacer(modifier = Modifier.height(48.dp))
-        Button(
-            onClick = onStart,
-            modifier = Modifier.width(200.dp).initialFocus()
-        ) {
-            Text(stringResource(R.string.action_start), fontSize = 20.sp)
+        val busy = starting || pressed
+        HomeButtons(onSettings = { viewModel.navigateToSettings() }) {
+            // Stays enabled while starting, so D-pad focus doesn't jump away; presses are ignored.
+            HomeButton(
+                stringResource(if (busy) R.string.starting else R.string.action_start),
+                Modifier.initialFocus()
+            ) {
+                if (!busy) {
+                    pressed = true
+                    onStart()
+                }
+            }
         }
     }
 }
@@ -250,7 +265,36 @@ fun DiscoveringScreen(viewModel: AirPlayViewModel, lastError: String? = null, on
             Text(lastError, color = Color(0xFFFFB4AB), fontSize = 18.sp)
         }
         Spacer(modifier = Modifier.height(32.dp))
-        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text(stringResource(R.string.action_stop)) }
+        HomeButtons(onSettings = { viewModel.navigateToSettings() }) {
+            HomeButton(stringResource(R.string.action_stop), Modifier.initialFocus(), onClick = onStop)
+        }
+    }
+}
+
+/** The home screen's main button with Settings beside it, in the same style. */
+@Composable
+private fun HomeButtons(onSettings: () -> Unit, main: @Composable () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        main()
+        HomeButton(stringResource(R.string.settings), onClick = onSettings)
+    }
+}
+
+/** A home/Settings button. The focused one gets a white outline, visible from the sofa. */
+@Composable
+fun HomeButton(text: String, modifier: Modifier = Modifier, muted: Boolean = false, onClick: () -> Unit) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    Button(
+        onClick = onClick,
+        interactionSource = interaction,
+        // Muted: grey, e.g. a switch that is off.
+        colors = if (muted) ButtonDefaults.buttonColors(containerColor = Color(0xFF4A4A52), contentColor = Color(0xFFDDDDDD))
+        else ButtonDefaults.buttonColors(),
+        border = if (focused) BorderStroke(3.dp, Color.White) else null,
+        modifier = modifier.widthIn(min = 160.dp)
+    ) {
+        Text(text, fontSize = 20.sp)
     }
 }
 
@@ -350,19 +394,6 @@ private fun InfoRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text(label, color = Color.Gray, fontSize = 18.sp, modifier = Modifier.weight(0.45f))
         Text(value, color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(0.55f))
-    }
-}
-
-@Composable
-fun RegisteringScreen(onStop: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(stringResource(R.string.publishing), color = Color.White)
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onStop, modifier = Modifier.initialFocus()) { Text(stringResource(R.string.action_stop)) }
     }
 }
 

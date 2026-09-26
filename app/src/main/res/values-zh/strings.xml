@@ -6,6 +6,7 @@
     <string name="action_stop">停止</string>
     <string name="action_retry">重试</string>
     <string name="action_save">保存</string>
+    <string name="action_back">返回</string>
     <string name="on">开</string>
     <string name="off">关</string>
     <string name="auto">自动</string>
@@ -16,7 +17,7 @@
     <string name="waiting_how">iPhone 或 iPad：控制中心 → 屏幕镜像 → %1$s。在 App 中，点 AirPlay 图标。</string>
     <string name="waiting_how_dlna">iPhone 或 iPad：控制中心 → 屏幕镜像 → %1$s。在 App 中，点 AirPlay 图标，或 App 自带的投屏按钮（如 B 站）。</string>
     <string name="waiting_same_network">手机和电视需要连接同一个网络。</string>
-    <string name="publishing">正在局域网中发布 AndroPlay…</string>
+    <string name="starting">启动中…</string>
     <string name="advertising_only_title">AndroPlay 已在局域网中可见</string>
     <string name="advertising_only_detail">仅可被发现，暂不支持 AirPlay 投屏。</string>
     <string name="connecting">正在连接…</string>
