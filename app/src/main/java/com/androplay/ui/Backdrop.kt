@@ -4,18 +4,28 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 
 /**
- * The music screen's backdrop: the album cover shrunk, blurred and later stretched over the
- * screen, as Apple Music and CarPlay do. Android's own blur (RenderEffect) needs Android 12;
- * blurring a tiny copy works everywhere and costs next to nothing.
+ * The music screen's backdrop, in the style of Apple Music and CarPlay: the middle of the album
+ * cover, heavily blurred, with its colours boosted (blurring averages them towards grey) and
+ * only a light veil. Android's own blur (RenderEffect) needs Android 12; blurring a tiny copy
+ * works everywhere, costs next to nothing, and the screen stretches it smoothly.
  */
 object Backdrop {
-    /** Size of the blurred copy; stretched to the screen with smooth filtering. */
-    private const val SIZE = 48
-    private const val RADIUS = 4
-    private const val PASSES = 3
+    /** The blurred picture, and how dark a veil keeps white text readable over it. */
+    class Result(val bitmap: Bitmap, val veil: Float)
 
-    /** A blurred [SIZE]x[SIZE] version of the encoded [cover], or null if it can't be decoded. */
-    fun fromCover(cover: ByteArray): Bitmap? {
+    private const val SIZE = 64
+    // Three box passes of radius 9 are close to a Gaussian of sigma ~9.5 px at this size.
+    private const val RADIUS = 9
+    private const val PASSES = 3
+    /** Only the middle of the cover: its edges are often borders or text. */
+    private const val CROP = 0.7f
+    private const val SATURATION = 1.5f
+    /** The veil over an average cover, and the most it gets over a bright one. */
+    const val MIN_VEIL = 0.35f
+    const val MAX_VEIL = 0.65f
+
+    /** The backdrop for the encoded [cover], or null if it can't be decoded. */
+    fun fromCover(cover: ByteArray): Result? {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(cover, 0, cover.size, options)
         if (options.outWidth <= 0 || options.outHeight <= 0) return null
@@ -23,15 +33,53 @@ object Backdrop {
         options.inJustDecodeBounds = false
         options.inSampleSize = (minOf(options.outWidth, options.outHeight) / (SIZE * 2)).coerceAtLeast(1)
         val decoded = BitmapFactory.decodeByteArray(cover, 0, cover.size, options) ?: return null
-        val small = Bitmap.createScaledBitmap(decoded, SIZE, SIZE, true)
-        if (small !== decoded) decoded.recycle()
+        val cropWidth = (decoded.width * CROP).toInt().coerceAtLeast(1)
+        val cropHeight = (decoded.height * CROP).toInt().coerceAtLeast(1)
+        val middle = Bitmap.createBitmap(decoded, (decoded.width - cropWidth) / 2, (decoded.height - cropHeight) / 2, cropWidth, cropHeight)
+        val small = Bitmap.createScaledBitmap(middle, SIZE, SIZE, true)
         val pixels = IntArray(SIZE * SIZE)
         small.getPixels(pixels, 0, SIZE, 0, 0, SIZE, SIZE)
-        val blurred = blur(pixels, SIZE, SIZE, RADIUS, PASSES)
-        return Bitmap.createBitmap(blurred, SIZE, SIZE, Bitmap.Config.ARGB_8888).also {
-            if (small !== it) small.recycle()
-        }
+        listOf(decoded, middle, small).distinct().forEach { it.recycle() }
+        val blurred = saturate(blur(pixels, SIZE, SIZE, RADIUS, PASSES), SATURATION)
+        return Result(
+            Bitmap.createBitmap(blurred, SIZE, SIZE, Bitmap.Config.ARGB_8888),
+            veilFor(averageLuminance(blurred))
+        )
     }
+
+    /** Scales each pixel's distance from its own grey by [factor] (1 = unchanged). */
+    fun saturate(pixels: IntArray, factor: Float): IntArray = IntArray(pixels.size) { i ->
+        val c = pixels[i]
+        val r = c shr 16 and 0xFF
+        val g = c shr 8 and 0xFF
+        val b = c and 0xFF
+        val grey = luminance(r, g, b)
+        fun boost(channel: Int) = (grey + (channel - grey) * factor).toInt().coerceIn(0, 255)
+        (c and 0xFF000000.toInt()) or (boost(r) shl 16) or (boost(g) shl 8) or boost(b)
+    }
+
+    /** Mean luminance, 0 (black) to 1 (white). */
+    fun averageLuminance(pixels: IntArray): Float {
+        if (pixels.isEmpty()) return 0f
+        val total = pixels.sumOf { c -> luminance(c shr 16 and 0xFF, c shr 8 and 0xFF, c and 0xFF).toDouble() }
+        return (total / pixels.size / 255.0).toFloat()
+    }
+
+    /** A light veil for most covers, darker as they get brighter (white text sits on top). */
+    fun veilFor(luminance: Float): Float =
+        (MIN_VEIL + (luminance - 0.45f).coerceAtLeast(0f) * 0.6f).coerceAtMost(MAX_VEIL)
+
+    /** Random grey noise, tiled faintly over the backdrop to hide banding. */
+    fun grain(size: Int = 128, seed: Long = 7): Bitmap {
+        val random = java.util.Random(seed)
+        val pixels = IntArray(size * size) {
+            val v = random.nextInt(256)
+            (0xFF shl 24) or (v shl 16) or (v shl 8) or v
+        }
+        return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
+    }
+
+    private fun luminance(r: Int, g: Int, b: Int) = 0.299f * r + 0.587f * g + 0.114f * b
 
     /**
      * A box blur of ARGB [pixels] ([width] x [height]), [passes] times, which approximates a
