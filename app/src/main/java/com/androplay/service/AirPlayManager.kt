@@ -93,6 +93,18 @@ class AirPlayManager private constructor(private val context: Context) {
     fun mirroringProfile(settings: ReceiverSettings): MirroringProfile =
         panelSize().let { (width, height) -> MirroringProfile.of(settings, hevcSupport, width, height) }
 
+    /** What decides the mirroring offer on this TV, for checking H.265 on a new TV from the log. */
+    private fun logMirroringCapabilities(settings: ReceiverSettings) {
+        val modes = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY).supportedModes
+            .map { "${it.physicalWidth}x${it.physicalHeight}@${it.refreshRate.toInt()}" }.distinct()
+        Log.i(
+            TAG,
+            "Mirroring offer: ${mirroringProfile(settings).label}; codec setting ${settings.videoCodec}, " +
+                "resolution ${settings.resolution}; hardware HEVC decoders ${hevcSupport.decoders.ifEmpty { listOf("none") }} " +
+                "(4K: ${hevcSupport.uhd}); display modes $modes"
+        )
+    }
+
     /**
      * The panel's largest mode. Many 4K TVs render their UI in a 1080p mode and switch up only
      * for video, so the current mode would under-report the panel.
@@ -238,6 +250,7 @@ class AirPlayManager private constructor(private val context: Context) {
 
     fun start(settings: ReceiverSettings = settingsStore.load()): Boolean {
         Log.d(TAG, "Starting AirPlay server: ${settings.deviceName}")
+        logMirroringCapabilities(settings)
         activeSettings = settings
         currentError = null
         val protocolPort = nativeBridge.start(

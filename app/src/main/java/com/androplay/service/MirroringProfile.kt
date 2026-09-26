@@ -10,7 +10,9 @@ data class HevcSupport(
     /** A hardware HEVC decoder exists; software ones can't keep up with live mirroring. */
     val hardware: Boolean,
     /** That decoder handles 3840x2160 at 30 fps. */
-    val uhd: Boolean
+    val uhd: Boolean,
+    /** The hardware HEVC decoders found, for the log. */
+    val decoders: List<String> = emptyList()
 ) {
     companion object {
         val NONE = HevcSupport(hardware = false, uhd = false)
@@ -28,7 +30,7 @@ data class HevcSupport(
                         .videoCapabilities.areSizeAndRateSupported(3840, 2160, 30.0)
                 }.getOrDefault(false)
             }
-            return HevcSupport(hardware = true, uhd = uhd)
+            return HevcSupport(hardware = true, uhd = uhd, decoders = decoders.map { it.name })
         }
 
         private fun isHardware(info: MediaCodecInfo): Boolean =
