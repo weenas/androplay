@@ -615,8 +615,7 @@ private fun MusicControls(
             if (playing) MediaIcons.Pause else MediaIcons.Play,
             if (playing) R.string.music_pause else R.string.music_play,
             PLAY_BUTTON_SIZE,
-            playModifier,
-            main = true
+            playModifier
         ) { onCommand(DacpClient.Command.PLAY_PAUSE) }
         MediaButton(MediaIcons.Next, R.string.music_next, MEDIA_BUTTON_SIZE) { onCommand(DacpClient.Command.NEXT) }
         MediaButton(MediaIcons.FastForward, R.string.music_fast_forward, MEDIA_BUTTON_SIZE) { onSkip(true) }
@@ -629,8 +628,6 @@ private fun MediaButton(
     description: Int,
     size: Dp,
     modifier: Modifier = Modifier,
-    /** The main (play/pause) button: a soft accent glow and ring, so it stands out without focus. */
-    main: Boolean = false,
     onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -643,9 +640,10 @@ private fun MediaButton(
                 scaleX = scale
                 scaleY = scale
             }
+            // The focused button alone glows, so there is only ever one highlight on screen.
             // Drawn behind (and beyond) the button without taking layout space.
             .then(
-                if (main) {
+                if (focused) {
                     Modifier.drawBehind {
                         drawCircle(
                             Brush.radialGradient(
@@ -664,11 +662,7 @@ private fun MediaButton(
             // Frosted glass at rest; the app's accent colour and outline when focused.
             .background(if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f))
             .then(
-                when {
-                    focused -> Modifier.border(3.dp, Color.White, CircleShape)
-                    main -> Modifier.border(2.dp, MUSIC_ACCENT, CircleShape)
-                    else -> Modifier
-                }
+                if (focused) Modifier.border(3.dp, Color.White, CircleShape) else Modifier
             )
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -687,7 +681,7 @@ private fun Modifier.marquee(): Modifier = basicMarquee(
     repeatDelayMillis = 2000,
     velocity = 40.dp
 )
-/** A lighter tint of the app's purple, bright enough on dark backdrops (progress, the main button). */
+/** A lighter tint of the app's purple, bright enough on dark backdrops (progress, the focus glow). */
 private val MUSIC_ACCENT = Color(0xFFA48BF5)
 /**
  * Secondary text on the music screen: translucent white rather than grey, so it keeps its
