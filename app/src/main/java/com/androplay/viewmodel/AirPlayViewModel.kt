@@ -32,7 +32,7 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
     private val networkMonitor = com.androplay.service.NetworkMonitor(application).also { it.start() }
     /** The TV's network (type, Wi-Fi name, IP) for the home screen. */
     val network: StateFlow<com.androplay.service.NetworkStatus> = networkMonitor.status
-    val appVersion: String = com.androplay.BuildConfig.VERSION_NAME
+    val appVersion: String = com.androplay.util.AppVersion.name(application)
 
     fun canReadWifiName() = networkMonitor.canReadSsid()
 
@@ -77,7 +77,7 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleVideoPause() = manager.toggleVideoPause()
 
-    private val lyricsClient = com.androplay.service.LyricsClient()
+    private val lyricsClient = com.androplay.service.LyricsClient(appVersion)
 
     /** Synced lyrics for a song, or null; looked up online, so call off the main thread. */
     fun findLyrics(title: String, artist: String?, album: String?, durationSec: Double) =

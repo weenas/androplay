@@ -1,7 +1,6 @@
 package com.androplay.service
 
 import android.util.LruCache
-import com.androplay.BuildConfig
 import com.androplay.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -14,7 +13,8 @@ import java.net.URLEncoder
  * the title, artist and length AirPlay senders report. Only used when the user turns lyrics
  * on, since it sends what is playing to that site. Blocking; call off the main thread.
  */
-class LyricsClient {
+/** [appVersion] identifies the app to LRCLIB, as it asks. */
+class LyricsClient(private val appVersion: String) {
     private val cache = LruCache<String, Result>(64)
 
     /** A cached lookup; [lyrics] is null when none were found. */
@@ -73,7 +73,7 @@ class LyricsClient {
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS
             // LRCLIB asks clients to identify themselves.
-            connection.setRequestProperty("User-Agent", "AndroPlay/${BuildConfig.VERSION_NAME} (https://github.com/weenas/androplay)")
+            connection.setRequestProperty("User-Agent", "AndroPlay/$appVersion (https://github.com/weenas/androplay)")
             when (connection.responseCode) {
                 HttpURLConnection.HTTP_OK -> connection.inputStream.bufferedReader().use { it.readText() }
                 HttpURLConnection.HTTP_NOT_FOUND -> null
