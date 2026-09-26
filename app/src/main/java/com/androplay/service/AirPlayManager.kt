@@ -97,6 +97,7 @@ class AirPlayManager private constructor(context: Context) {
     @Volatile private var volumeDb: Float? = null
     private val dacp = DacpClient(context)
     private val mediaSession = NowPlayingSession(context, onCommand = ::remoteControl)
+    private val dlna = com.androplay.dlna.DlnaReceiver(context)
 
     /** The AirPlay video player while one is active. Main thread only. */
     val videoPlayer: ExoPlayer? get() = hlsPlayer.player
@@ -154,6 +155,9 @@ class AirPlayManager private constructor(context: Context) {
             return false
         }
         currentState = AirPlayConnectionState.Registering
+        // DLNA (video apps' own cast buttons) runs beside AirPlay; for now it only logs what
+        // senders ask for, to check discovery and their requests on real TVs.
+        Thread({ dlna.start(settings.deviceName, com.androplay.dlna.DlnaReceiver.LoggingTarget()) }, "DLNA-start").start()
         return true
     }
 
@@ -169,6 +173,7 @@ class AirPlayManager private constructor(context: Context) {
         Log.d(TAG, "Stopping AirPlay server")
         nativeBridge.stop()
         discoveryAdvertiser.stop()
+        dlna.stop()
         videoRenderer.stop()
         audioRenderer.stop()
         hlsPlayer.stop()
