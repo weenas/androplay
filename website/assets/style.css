@@ -41,10 +41,10 @@ img { max-width: 100%; display: block; }
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
-.top .wrap { display: flex; align-items: center; gap: 28px; height: 76px; }
+.top .wrap { display: flex; align-items: center; gap: 28px; height: 84px; }
 /* The bilingual wordmark (mark, CastBay | 映湾) as an image: its fonts aren't on every system. */
 .brand { display: flex; align-items: center; }
-.brand img { width: auto; height: 52px; }
+.brand img { width: auto; height: 60px; }
 .nav { display: flex; gap: 22px; margin-left: auto; }
 .nav a { color: var(--text-2); font-size: 15px; }
 .nav a:hover { color: var(--text); text-decoration: none; }
@@ -91,7 +91,7 @@ img { max-width: 100%; display: block; }
 }
 
 /* Sections */
-section { padding: 88px 0; scroll-margin-top: 76px; } /* clear the sticky header when jumping to #anchors */
+section { padding: 88px 0; scroll-margin-top: 84px; } /* clear the sticky header when jumping to #anchors */
 section.alt { background: var(--bg-raised); }
 .section-head { max-width: 40em; margin-bottom: 44px; }
 .section-head h2 { font-size: clamp(28px, 3.6vw, 38px); line-height: 1.2; margin: 0 0 12px; text-wrap: balance; }
@@ -162,7 +162,8 @@ footer .links { display: flex; gap: 20px; flex-wrap: wrap; }
 
 @media (max-width: 720px) {
   .nav { display: none; }
-  .top .wrap { gap: 12px; }
+  .top .wrap { gap: 12px; height: 72px; }
+  .brand img { height: 48px; } /* leaves room for the language button on phones */
   .lang { margin-left: auto; }
   .hero .wrap { padding-top: 72px; padding-bottom: 96px; }
   .hero::after { background: linear-gradient(0deg, var(--bg) 0%, rgba(11, 9, 16, 0.85) 60%, rgba(11, 9, 16, 0.7) 100%); }
