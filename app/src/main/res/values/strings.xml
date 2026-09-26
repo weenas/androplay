@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">CastBay</string>
+    <string name="app_name">CastBay</string>
     <string name="app_tagline">AirPlay Receiver for Android TV</string>
 
     <!-- Common -->
