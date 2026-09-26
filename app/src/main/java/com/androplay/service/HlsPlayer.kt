@@ -78,7 +78,7 @@ class HlsPlayer(
     }
 
     /** What is playing, for the stats overlay. Main thread only; null when idle. */
-    fun stats(): PlaybackStats? {
+    fun stats(source: String = "AirPlay video"): PlaybackStats? {
         val exo = player ?: return null
         val video = exo.videoFormat?.let { format ->
             VideoStats(
@@ -101,7 +101,7 @@ class HlsPlayer(
             )
         }
         return PlaybackStats(
-            source = "AirPlay video",
+            source = source,
             video = video,
             audio = audio,
             extra = listOf(
@@ -203,6 +203,28 @@ class HlsPlayer(
 
     fun stop() {
         main.post { release() }
+    }
+
+    /** Where playback is, for senders that poll (DLNA). Thread-safe. */
+    data class Progress(
+        val positionSec: Double,
+        val durationSec: Double,
+        /** Loading or playing a video (not stopped, finished or failed). */
+        val active: Boolean,
+        val playing: Boolean,
+        val buffering: Boolean,
+        val finished: Boolean
+    )
+
+    fun progress(): Progress = snapshot.let {
+        Progress(
+            positionSec = it.positionSec,
+            durationSec = it.durationSec,
+            active = it.state == AirPlayNative.PLAYBACK_ACTIVE,
+            playing = it.rate > 0,
+            buffering = it.buffering,
+            finished = it.state == AirPlayNative.PLAYBACK_FINISHED
+        )
     }
 
     /** Thread-safe; see [com.androplay.protocol.VideoPlaybackListener.playbackInfo]. */
