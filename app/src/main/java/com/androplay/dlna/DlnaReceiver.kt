@@ -11,6 +11,7 @@ import java.util.UUID
 class DlnaReceiver(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences("dlna_identity", Context.MODE_PRIVATE)
     private var http: DlnaHttpServer? = null
+    private var events: DlnaEvents? = null
     private var ssdp: SsdpServer? = null
 
     /** Stable across restarts, so control points keep recognising the TV. */
@@ -24,10 +25,13 @@ class DlnaReceiver(context: Context) {
     fun start(name: String, target: DlnaRenderer.Target) {
         stop()
         val friendlyName = name.trim().ifBlank { "AndroPlay" }
-        val server = DlnaHttpServer(DlnaRenderer(target)) { UpnpDescriptions.device(friendlyName, uuid) }
+        val renderer = DlnaRenderer(target)
+        val eventing = DlnaEvents(renderer)
+        val server = DlnaHttpServer(renderer, eventing) { UpnpDescriptions.device(friendlyName, uuid) }
         try {
             val port = server.start()
             http = server
+            events = eventing.also { it.start() }
             ssdp = SsdpServer(uuid) { server.port }.also { it.start() }
             Log.i(TAG, "DLNA renderer \"$friendlyName\" on port $port (uuid $uuid)")
         } catch (error: Exception) {
@@ -40,8 +44,10 @@ class DlnaReceiver(context: Context) {
     fun stop() {
         ssdp?.stop()
         http?.stop()
+        events?.stop()
         ssdp = null
         http = null
+        events = null
     }
 
     /**

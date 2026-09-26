@@ -39,6 +39,39 @@ class DlnaRenderer(private val target: Target) {
         else -> connectionManager(action)
     }
 
+    /**
+     * The evented state of [service] (GENA LastChange): what subscribers are told whenever it
+     * changes. Positions aren't evented; control points poll GetPositionInfo for them.
+     */
+    @Synchronized
+    fun eventValues(service: UpnpDescriptions.Service): List<Pair<String, String>> {
+        val status = target.status()
+        return when (service) {
+            UpnpDescriptions.AV_TRANSPORT -> listOf(
+                "TransportState" to transportState(status),
+                "TransportStatus" to "OK",
+                "CurrentTransportActions" to transportActions(status),
+                "AVTransportURI" to uri,
+                "CurrentTrackURI" to uri,
+                "CurrentMediaDuration" to DlnaState.formatTime(status.durationSec),
+                "CurrentTrackDuration" to DlnaState.formatTime(status.durationSec)
+            )
+            UpnpDescriptions.RENDERING_CONTROL -> listOf(
+                "Volume" to status.volume.toString(),
+                "Mute" to if (status.muted) "1" else "0"
+            )
+            else -> emptyList()
+        }
+    }
+
+    private fun transportState(status: Status) = if (uri.isEmpty()) DlnaState.NO_MEDIA else status.state
+
+    private fun transportActions(status: Status) = when (status.state) {
+        DlnaState.PLAYING -> "Pause,Stop,Seek"
+        DlnaState.PAUSED -> "Play,Stop,Seek"
+        else -> if (uri.isEmpty()) "" else "Play"
+    }
+
     private fun avTransport(action: Soap.Action): List<Pair<String, String>> {
         val status = target.status()
         return when (action.name) {
@@ -66,7 +99,7 @@ class DlnaRenderer(private val target: Target) {
             }
             "Next", "Previous" -> throw Soap.Fault(701, "Transition not available")
             "GetTransportInfo" -> listOf(
-                "CurrentTransportState" to (if (uri.isEmpty()) DlnaState.NO_MEDIA else status.state),
+                "CurrentTransportState" to transportState(status),
                 "CurrentTransportStatus" to "OK",
                 "CurrentSpeed" to "1"
             )
@@ -100,13 +133,7 @@ class DlnaRenderer(private val target: Target) {
                 "RecQualityModes" to "NOT_IMPLEMENTED"
             )
             "GetTransportSettings" -> listOf("PlayMode" to "NORMAL", "RecQualityMode" to "NOT_IMPLEMENTED")
-            "GetCurrentTransportActions" -> listOf(
-                "Actions" to when (status.state) {
-                    DlnaState.PLAYING -> "Pause,Stop,Seek"
-                    DlnaState.PAUSED -> "Play,Stop,Seek"
-                    else -> if (uri.isEmpty()) "" else "Play"
-                }
-            )
+            "GetCurrentTransportActions" -> listOf("Actions" to transportActions(status))
             else -> throw Soap.Fault(401, "Invalid Action")
         }
     }

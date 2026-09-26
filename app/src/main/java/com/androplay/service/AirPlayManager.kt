@@ -13,6 +13,9 @@ class AirPlayManager private constructor(context: Context) {
         private const val DEFAULT_VIDEO_WIDTH = 1920
         private const val DEFAULT_VIDEO_HEIGHT = 1080
         private const val PAUSE_CHECK_MS = 500L
+        /** playback-info for an AirPlay sender whose video DLNA replaced: finished, so it ends its session. */
+        private val AIRPLAY_VIDEO_REPLACED =
+            doubleArrayOf(0.0, 0.0, 0.0, com.androplay.protocol.AirPlayNative.PLAYBACK_FINISHED, 0.0, 1.0)
 
         @Volatile
         private var instance: AirPlayManager? = null
@@ -61,10 +64,19 @@ class AirPlayManager private constructor(context: Context) {
         },
         videoPlayback = object : VideoPlaybackListener {
             override fun onPlay(url: String, startPositionSec: Float) = onVideoPlay(url, startPositionSec)
-            override fun onSeek(positionSec: Float) = hlsPlayer.seek(positionSec)
-            override fun onRate(rate: Float) = hlsPlayer.setRate(rate)
-            override fun onStop() = onVideoStopped(null)
-            override fun playbackInfo(): DoubleArray = hlsPlayer.playbackInfo()
+            // Once DLNA has taken the player over, the AirPlay sender's commands no longer apply
+            // and it is told its video is over.
+            override fun onSeek(positionSec: Float) {
+                if (videoSource != VideoSource.DLNA) hlsPlayer.seek(positionSec)
+            }
+            override fun onRate(rate: Float) {
+                if (videoSource != VideoSource.DLNA) hlsPlayer.setRate(rate)
+            }
+            override fun onStop() {
+                if (videoSource != VideoSource.DLNA) onVideoStopped(null)
+            }
+            override fun playbackInfo(): DoubleArray =
+                if (videoSource == VideoSource.DLNA) AIRPLAY_VIDEO_REPLACED else hlsPlayer.playbackInfo()
         },
         onSessionEnd = ::onNativeStreamStopped
     )
@@ -98,6 +110,94 @@ class AirPlayManager private constructor(context: Context) {
     private val dacp = DacpClient(context)
     private val mediaSession = NowPlayingSession(context, onCommand = ::remoteControl)
     private val dlna = com.androplay.dlna.DlnaReceiver(context)
+
+    /** Who started the video in [hlsPlayer]: AirPlay (e.g. YouTube) or DLNA (e.g. Bilibili's cast button). */
+    private enum class VideoSource { AIRPLAY, DLNA }
+    @Volatile private var videoSource: VideoSource? = null
+
+    /** DLNA senders' commands, played with the same player, screen and quick menu as AirPlay video. */
+    private val dlnaTarget = object : com.androplay.dlna.DlnaRenderer.Target {
+        @Volatile private var url: String? = null
+        @Volatile private var title: String? = null
+        @Volatile private var volume = 100
+        @Volatile private var muted = false
+
+        override fun open(url: String, title: String?) {
+            this.url = url
+            this.title = title
+            start(url, title)
+        }
+
+        private fun start(url: String, title: String?) {
+            Log.i(TAG, "DLNA video: ${title ?: "(no title)"} · $url")
+            // Like AirPlay video, it replaces whatever is on screen. Playback starts right away:
+            // some senders never send Play after SetAVTransportURI.
+            videoSource = VideoSource.DLNA
+            videoRenderer.stop()
+            audioRenderer.stop()
+            applyVolume()
+            hlsPlayer.play(url, 0f) {
+                currentStreamInfo = StreamInfo(sourceName = title.orEmpty(), isVideoPlayback = true)
+                currentError = null
+                currentState = AirPlayConnectionState.Streaming
+            }
+        }
+
+        private fun ours() = videoSource == VideoSource.DLNA
+
+        override fun play() {
+            val progress = hlsPlayer.progress()
+            if (ours() && progress.active) {
+                hlsPlayer.setRate(1f)
+            } else {
+                // After Stop or the end, or once AirPlay took over: Play starts the video again.
+                url?.let { start(it, title) }
+            }
+        }
+
+        override fun pause() {
+            if (ours()) hlsPlayer.setRate(0f)
+        }
+
+        override fun stop() {
+            if (ours()) onVideoStopped(null)
+        }
+
+        override fun seek(positionSec: Double) {
+            if (ours()) hlsPlayer.seek(positionSec.toFloat())
+        }
+
+        override fun setVolume(percent: Int) {
+            volume = percent
+            applyVolume()
+        }
+
+        override fun setMuted(muted: Boolean) {
+            this.muted = muted
+            applyVolume()
+        }
+
+        private fun applyVolume() {
+            if (ours()) hlsPlayer.setVolume(if (muted) 0f else volume / 100f)
+        }
+
+        override fun status(): com.androplay.dlna.DlnaRenderer.Status {
+            val progress = hlsPlayer.progress()
+            val state = when {
+                !ours() || !progress.active -> com.androplay.dlna.DlnaState.STOPPED
+                progress.buffering -> com.androplay.dlna.DlnaState.TRANSITIONING
+                progress.playing -> com.androplay.dlna.DlnaState.PLAYING
+                else -> com.androplay.dlna.DlnaState.PAUSED
+            }
+            return com.androplay.dlna.DlnaRenderer.Status(
+                state = state,
+                positionSec = if (ours()) progress.positionSec else 0.0,
+                durationSec = if (ours()) progress.durationSec else 0.0,
+                volume = volume,
+                muted = muted
+            )
+        }
+    }
 
     /** The AirPlay video player while one is active. Main thread only. */
     val videoPlayer: ExoPlayer? get() = hlsPlayer.player
@@ -155,9 +255,8 @@ class AirPlayManager private constructor(context: Context) {
             return false
         }
         currentState = AirPlayConnectionState.Registering
-        // DLNA (video apps' own cast buttons) runs beside AirPlay; for now it only logs what
-        // senders ask for, to check discovery and their requests on real TVs.
-        Thread({ dlna.start(settings.deviceName, com.androplay.dlna.DlnaReceiver.LoggingTarget()) }, "DLNA-start").start()
+        // DLNA (video apps' own cast buttons, e.g. Bilibili's) runs beside AirPlay.
+        Thread({ dlna.start(settings.deviceName, dlnaTarget) }, "DLNA-start").start()
         return true
     }
 
@@ -177,6 +276,7 @@ class AirPlayManager private constructor(context: Context) {
         videoRenderer.stop()
         audioRenderer.stop()
         hlsPlayer.stop()
+        videoSource = null
         nowPlaying = NowPlaying()
         dacp.clear()
         mediaSession.update(null)
@@ -203,6 +303,7 @@ class AirPlayManager private constructor(context: Context) {
         if (isMirroring && width > 0 && height > 0) {
             videoRenderer.configure(width, height)
         }
+        stopDlnaVideo()
         currentStreamInfo = StreamInfo(name, model, width, height, fps, sampleRate, channels, isMirroring, true)
         currentError = null
         currentState = AirPlayConnectionState.Streaming
@@ -211,16 +312,20 @@ class AirPlayManager private constructor(context: Context) {
     fun onNativeStreamStopped() {
         videoRenderer.stop()
         audioRenderer.stop()
-        hlsPlayer.stop()
         nowPlaying = NowPlaying()
         dacp.clear()
         mediaSession.update(null)
+        // An AirPlay session ending (e.g. a phone that was only probing) leaves DLNA video playing.
+        if (videoSource == VideoSource.DLNA && currentStreamInfo.isVideoPlayback) return
+        hlsPlayer.stop()
         currentStreamInfo = StreamInfo()
         currentState = AirPlayConnectionState.Discovering
     }
 
     private fun onNativeConnectionStarted() {
         currentError = null
+        // DLNA video stays on screen until the AirPlay sender actually streams something.
+        if (videoSource == VideoSource.DLNA && currentStreamInfo.isVideoPlayback) return
         currentState = AirPlayConnectionState.Connecting
     }
 
@@ -238,7 +343,8 @@ class AirPlayManager private constructor(context: Context) {
     }
 
     private fun onVideoPlay(url: String, startPositionSec: Float) {
-        // AirPlay video replaces any mirroring session on this receiver.
+        // AirPlay video replaces any mirroring session (or DLNA video) on this receiver.
+        videoSource = VideoSource.AIRPLAY
         videoRenderer.stop()
         audioRenderer.stop()
         hlsPlayer.play(url, startPositionSec) {
@@ -256,7 +362,8 @@ class AirPlayManager private constructor(context: Context) {
         audioRenderer.renderPcm(pcm, compressedBytes)
         lastAudioAtMs = android.os.SystemClock.elapsedRealtime()
         if (!nowPlaying.playing) updateNowPlaying { it.resumed() }
-        if (currentState == AirPlayConnectionState.Connecting) {
+        if (currentState == AirPlayConnectionState.Connecting || videoSource == VideoSource.DLNA) {
+            stopDlnaVideo()
             currentStreamInfo = StreamInfo(isAudioOnly = true, nowPlaying = nowPlaying)
             currentState = AirPlayConnectionState.Streaming
             mediaSession.update(nowPlaying)
@@ -282,7 +389,8 @@ class AirPlayManager private constructor(context: Context) {
     fun playbackStats(): PlaybackStats? {
         val stream = currentStreamInfo
         val stats = when {
-            stream.isVideoPlayback -> hlsPlayer.stats() ?: return null
+            stream.isVideoPlayback ->
+                hlsPlayer.stats(if (videoSource == VideoSource.DLNA) "DLNA video" else "AirPlay video") ?: return null
             stream.isMirroring -> PlaybackStats("Screen mirroring", videoRenderer.stats(), audioRenderer.stats())
             stream.isAudioOnly -> PlaybackStats("AirPlay audio", audio = audioRenderer.stats())
             else -> return null
@@ -314,6 +422,13 @@ class AirPlayManager private constructor(context: Context) {
             notifyStateChange(currentState)
             mediaSession.update(nowPlaying)
         }
+    }
+
+    /** AirPlay mirroring or audio starting takes the screen from DLNA video. */
+    private fun stopDlnaVideo() {
+        if (videoSource != VideoSource.DLNA) return
+        videoSource = null
+        hlsPlayer.stop()
     }
 
     /** [error] is shown on the waiting screen until the next connection. */

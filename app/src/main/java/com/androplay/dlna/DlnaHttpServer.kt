@@ -7,7 +7,6 @@ import java.io.InputStream
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
-import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -17,6 +16,7 @@ import java.util.concurrent.Executors
  */
 class DlnaHttpServer(
     private val renderer: DlnaRenderer,
+    private val events: DlnaEvents,
     private val description: () -> String
 ) {
     private var server: ServerSocket? = null
@@ -90,7 +90,10 @@ class DlnaHttpServer(
             path == service.scpdPath -> Response(200, "OK", UpnpDescriptions.scpd(service))
             path == service.controlPath && request.method == "POST" -> control(service, request, from)
             path == service.eventPath && request.method == "SUBSCRIBE" -> subscribe(service, request, from)
-            path == service.eventPath && request.method == "UNSUBSCRIBE" -> Response(200, "OK")
+            path == service.eventPath && request.method == "UNSUBSCRIBE" -> {
+                events.unsubscribe(request.headers["sid"])
+                Response(200, "OK")
+            }
             else -> Response(405, "Method Not Allowed")
         }
     }
@@ -111,14 +114,12 @@ class DlnaHttpServer(
         }
     }
 
-    /**
-     * Accepts the subscription so control points that require it carry on. Events themselves
-     * (LastChange NOTIFYs to the CALLBACK URL) aren't sent yet; senders poll instead.
-     */
     private fun subscribe(service: UpnpDescriptions.Service, request: Request, from: String): Response {
-        val sid = request.headers["sid"] ?: "uuid:${UUID.randomUUID()}"
-        Log.i(TAG, "$from subscribed to ${service.name} events (callback ${request.headers["callback"].orEmpty()})")
-        return Response(200, "OK", headers = listOf("SID" to sid, "TIMEOUT" to "Second-$SUBSCRIPTION_SEC"))
+        val renewal = request.headers["sid"]
+        val (sid, seconds) = events.subscribe(service, renewal, request.headers["callback"], request.headers["timeout"])
+            ?: return Response(412, "Precondition Failed")
+        if (renewal == null) Log.i(TAG, "$from subscribed to ${service.name} events (${request.headers["callback"].orEmpty()})")
+        return Response(200, "OK", headers = listOf("SID" to sid, "TIMEOUT" to "Second-$seconds"))
     }
 
     private data class Request(val method: String, val path: String, val headers: Map<String, String>, val body: String)
@@ -182,7 +183,6 @@ class DlnaHttpServer(
         const val READ_TIMEOUT_MS = 10_000
         const val MAX_LINE_BYTES = 8 * 1024
         const val MAX_BODY_BYTES = 256 * 1024
-        const val SUBSCRIPTION_SEC = 1800
         val QUIET_ACTIONS = setOf("GetPositionInfo", "GetTransportInfo", "GetVolume", "GetMute", "GetMediaInfo")
     }
 }

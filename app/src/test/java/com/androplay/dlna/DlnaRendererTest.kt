@@ -68,6 +68,19 @@ class DlnaRendererTest {
     }
 
     @Test
+    fun eventsTheTransportStateAndVolume() {
+        assertEquals(DlnaState.NO_MEDIA, renderer.eventValues(UpnpDescriptions.AV_TRANSPORT).toMap()["TransportState"])
+        call("SetAVTransportURI", "<CurrentURI>http://cdn/v.mp4</CurrentURI>")
+        target.status = DlnaRenderer.Status(DlnaState.PLAYING, durationSec = 60.0, volume = 30, muted = true)
+        val transport = renderer.eventValues(UpnpDescriptions.AV_TRANSPORT).toMap()
+        assertEquals(DlnaState.PLAYING, transport["TransportState"])
+        assertEquals("Pause,Stop,Seek", transport["CurrentTransportActions"])
+        assertEquals("0:01:00", transport["CurrentTrackDuration"])
+        assertEquals(mapOf("Volume" to "30", "Mute" to "1"), renderer.eventValues(UpnpDescriptions.RENDERING_CONTROL).toMap())
+        assertTrue(renderer.eventValues(UpnpDescriptions.CONNECTION_MANAGER).isEmpty())
+    }
+
+    @Test
     fun refusesWhatItCantDo() {
         for ((action, code) in listOf("Play" to 701, "Next" to 701, "Record" to 401)) {
             try {
