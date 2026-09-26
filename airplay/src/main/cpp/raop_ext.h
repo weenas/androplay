@@ -1,5 +1,5 @@
-#ifndef ANDROPLAY_RAOP_EXT_H
-#define ANDROPLAY_RAOP_EXT_H
+#ifndef CASTBAY_RAOP_EXT_H
+#define CASTBAY_RAOP_EXT_H
 
 #include "raop.h"
 

@@ -3,11 +3,11 @@
 #include <jni.h>
 #include <android/log.h>
 
-#define LOG_TAG "AndroPlayNative"
+#define LOG_TAG "CastBayNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-namespace androplay {
+namespace castbay {
 
 JavaVM* NativeBridge::jvm_ = nullptr;
 JNIEnv* NativeBridge::getEnv() {
@@ -65,20 +65,20 @@ void NativeBridge::nativeOnFrameInfo(JNIEnv* env, jobject thiz,
     // Frame info callback for debug overlay
 }
 
-} // namespace androplay
+} // namespace castbay
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_androplay_service_NativeBridge_nativeStart(
+Java_com_weenas_castbay_service_NativeBridge_nativeStart(
     JNIEnv* env, jobject, jstring deviceName) {
     if (deviceName == nullptr) return JNI_FALSE;
     const char* name = env->GetStringUTFChars(deviceName, nullptr);
     if (name == nullptr) return JNI_FALSE;
-    const bool started = androplay::AirPlayEngine::instance().start(name);
+    const bool started = castbay::AirPlayEngine::instance().start(name);
     env->ReleaseStringUTFChars(deviceName, name);
     return started ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_androplay_service_NativeBridge_nativeStop(JNIEnv*, jobject) {
-    androplay::AirPlayEngine::instance().stop();
+Java_com_weenas_castbay_service_NativeBridge_nativeStop(JNIEnv*, jobject) {
+    castbay::AirPlayEngine::instance().stop();
 }

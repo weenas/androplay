@@ -3,7 +3,7 @@
 #include <jni.h>
 #include <cstdint>
 
-namespace androplay {
+namespace castbay {
 void initJvm(JavaVM *vm);
 JavaVM *jvm();
 void setVideoSink(JNIEnv *env, jobject sink);

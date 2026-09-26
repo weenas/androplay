@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.androplay.protocol"
+    namespace = "com.weenas.castbay.protocol"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 

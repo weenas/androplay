@@ -1,0 +1,107 @@
+package com.weenas.castbay.service
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Intent
+import android.os.Build
+import android.os.IBinder
+import com.weenas.castbay.MainActivity
+
+class AirPlayService : Service() {
+
+    companion object {
+        const val ACTION_START = "com.weenas.castbay.action.START_RECEIVER"
+        const val ACTION_STOP = "com.weenas.castbay.action.STOP_RECEIVER"
+        const val CHANNEL_ID = "castbay_channel"
+        const val NOTIFICATION_ID = 1
+    }
+
+    private val manager by lazy { AirPlayManager.getInstance(this) }
+    private var running = false
+    private val stateCallback: (AirPlayConnectionState, StreamInfo, String?) -> Unit = { state, _, _ ->
+        if (running) {
+            when (state) {
+                AirPlayConnectionState.AdvertisingOnly -> getSystemService(NotificationManager::class.java)
+                    .notify(NOTIFICATION_ID, buildNotification(getString(com.weenas.castbay.R.string.notification_discoverable_only)))
+                AirPlayConnectionState.Error -> {
+                    running = false
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        manager.registerStateCallback(stateCallback)
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            if (running) manager.stop()
+            running = false
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (running) return START_NOT_STICKY
+
+        startForeground(NOTIFICATION_ID, buildNotification(getString(com.weenas.castbay.R.string.notification_starting)))
+        val settings = ReceiverSettingsStore(this).load()
+        if (!manager.start(settings)) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        running = true
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, buildNotification(
+                getString(
+                    if (manager.isDiscoveryOnly) com.weenas.castbay.R.string.notification_discovery_only
+                    else com.weenas.castbay.R.string.notification_waiting
+                )
+            ))
+        return START_NOT_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        if (running) manager.stop()
+        manager.unregisterStateCallback(stateCallback)
+        super.onDestroy()
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                getString(com.weenas.castbay.R.string.notification_channel),
+                NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    private fun buildNotification(message: String): Notification {
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle(getString(com.weenas.castbay.R.string.app_name))
+            .setContentText(message)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .build()
+    }
+}

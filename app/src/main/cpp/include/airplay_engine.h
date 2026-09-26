@@ -6,7 +6,7 @@
 #include <functional>
 #include <jni.h>
 
-namespace androplay {
+namespace castbay {
 
 enum class ConnectionState {
     Idle,
@@ -69,4 +69,4 @@ private:
     float volume_ = 1.0f;
 };
 
-} // namespace androplay
+} // namespace castbay

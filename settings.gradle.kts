@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "AndroPlay"
+rootProject.name = "CastBay"
 include(":app", ":airplay")

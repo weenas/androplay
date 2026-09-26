@@ -4,7 +4,7 @@
 #include "file_log.h"
 #include <mutex>
 
-#define LOGE(...) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayAudioSink", __VA_ARGS__)
+#define LOGE(...) castbay_logf(ANDROID_LOG_ERROR, "CastBayAudioSink", __VA_ARGS__)
 
 namespace {
 jobject g_sink = nullptr;
@@ -18,7 +18,7 @@ jmethodID g_on_progress = nullptr;
 std::mutex g_mutex;
 
 JNIEnv *currentEnv() {
-    JavaVM *vm = androplay::jvm();
+    JavaVM *vm = castbay::jvm();
     if (!vm) return nullptr;
     JNIEnv *env = nullptr;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK) return env;
@@ -27,7 +27,7 @@ JNIEnv *currentEnv() {
 }
 }
 
-namespace androplay {
+namespace castbay {
 void setAudioSink(JNIEnv *env, jobject sink) {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (g_sink) {

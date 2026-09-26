@@ -23,8 +23,8 @@ extern "C" {
 #include "stream.h"
 }
 
-#define LOGI(...) androplay_logf(ANDROID_LOG_INFO, "AndroPlayProtocol", __VA_ARGS__)
-#define LOGE(...) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayProtocol", __VA_ARGS__)
+#define LOGI(...) castbay_logf(ANDROID_LOG_INFO, "CastBayProtocol", __VA_ARGS__)
+#define LOGE(...) castbay_logf(ANDROID_LOG_ERROR, "CastBayProtocol", __VA_ARGS__)
 
 namespace {
 /* AirPlay compression type (ct) reported by audio_get_format and in each audio packet. */
@@ -60,7 +60,7 @@ std::atomic<float> g_volume_db{0.0f};
 std::atomic<bool> g_h265_enabled{false};
 
 JNIEnv *currentEnv() {
-    JavaVM *vm = androplay::jvm();
+    JavaVM *vm = castbay::jvm();
     if (!vm) return nullptr;
     JNIEnv *env = nullptr;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK) return env;
@@ -73,14 +73,14 @@ void audioProcess(void *, raop_ntp_t *, audio_decode_struct *data) {
     const auto ptsUs = static_cast<int64_t>(data->ntp_time_remote / 1000);
     if (data->ct == kAudioCtAacEld) {
         // Screen mirroring: decoded by MediaCodec on the Kotlin side.
-        androplay::dispatchAudio(data->data, data->data_len, ptsUs);
+        castbay::dispatchAudio(data->data, data->data_len, ptsUs);
     } else if (data->ct == kAudioCtAlac) {
         // Audio streaming (music apps): Android has no ALAC codec, so decode here.
         // audio_process always runs on the session's single RTP thread.
-        static androplay::AlacDecoder decoder;
+        static castbay::AlacDecoder decoder;
         static std::vector<int16_t> pcm;
         if (decoder.decode(data->data, data->data_len, pcm)) {
-            androplay::dispatchPcm(pcm.data(), static_cast<int>(pcm.size()), ptsUs, data->data_len);
+            castbay::dispatchPcm(pcm.data(), static_cast<int>(pcm.size()), ptsUs, data->data_len);
         } else {
             LOGE("Dropped a corrupt ALAC frame (%d bytes)", data->data_len);
         }
@@ -88,12 +88,12 @@ void audioProcess(void *, raop_ntp_t *, audio_decode_struct *data) {
 }
 
 void audioFlush(void *) {
-    androplay::dispatchAudioFlush();
+    castbay::dispatchAudioFlush();
 }
 
 void videoProcess(void *, raop_ntp_t *, video_decode_struct *data) {
     if (!data) return;
-    androplay::dispatchVideo(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000),
+    castbay::dispatchVideo(data->data, data->data_len, static_cast<int64_t>(data->ntp_time_remote / 1000),
                              data->is_h265);
 }
 
@@ -137,7 +137,7 @@ void dropOrphanedReverseSoon() {
         }
         if (ended) {
             onVideoStop(nullptr);
-            if (JavaVM *vm = androplay::jvm()) vm->DetachCurrentThread();
+            if (JavaVM *vm = castbay::jvm()) vm->DetachCurrentThread();
         }
     }).detach();
 }
@@ -151,12 +151,12 @@ void connectionStopped(void *) {
         return;
     }
     LOGI("AirPlay sender disconnected");
-    androplay::dispatchSessionEnd();
+    castbay::dispatchSessionEnd();
 }
 
 void connectionReset(void *, int reason) {
     LOGI("AirPlay connection reset (reason %d)", reason);
-    androplay::dispatchSessionEnd();
+    castbay::dispatchSessionEnd();
 }
 
 void onVideoStop(void *) {
@@ -173,7 +173,7 @@ void videoReset(void *cls, reset_type_t type) {
         LOGI("New sender took over the receiver");
         onVideoStop(cls);
         if (g_raop) raop_destroy_airplay_video(g_raop, -1);
-        androplay::dispatchSessionEnd();
+        castbay::dispatchSessionEnd();
         callStatic(g_on_connection_started);
         break;
     case RESET_TYPE_HLS_SHUTDOWN:
@@ -282,24 +282,24 @@ double audioSetClientVolume(void *) { return g_volume_db.load(); }
 void audioSetVolume(void *, float db) {
     LOGI("AirPlay volume %.1f dB", db);
     g_volume_db = db;
-    androplay::dispatchVolume(db);
+    castbay::dispatchVolume(db);
 }
 void audioSetMetadata(void *, const void *buffer, int length) {
-    androplay::dispatchMetadata(buffer, length);
+    castbay::dispatchMetadata(buffer, length);
 }
 
 void audioSetCoverart(void *, const void *buffer, int length) {
-    androplay::dispatchCoverArt(buffer, length);
+    castbay::dispatchCoverArt(buffer, length);
 }
 
 void audioStopCoverartRendering(void *) {
-    androplay::dispatchCoverArt(nullptr, 0);
+    castbay::dispatchCoverArt(nullptr, 0);
 }
 void audioRemoteControlId(void *, const char *, const char *) {}
 /* RTP timestamps at 44.1 kHz; unsigned subtraction handles wraparound. */
 void audioSetProgress(void *, uint32_t *start, uint32_t *current, uint32_t *end) {
     constexpr double kRate = 44100.0;
-    androplay::dispatchProgress(static_cast<uint32_t>(*current - *start) / kRate,
+    castbay::dispatchProgress(static_cast<uint32_t>(*current - *start) / kRate,
                                 static_cast<uint32_t>(*end - *start) / kRate);
 }
 void videoReportSize(void *, float *, float *, float *, float *) {}
@@ -351,7 +351,7 @@ void logCallback(void *, int level, const char *message) {
     const int priority = level <= LOGGER_ERR ? ANDROID_LOG_ERROR :
         (level <= LOGGER_WARNING ? ANDROID_LOG_WARN :
         (level <= LOGGER_INFO ? ANDROID_LOG_INFO : ANDROID_LOG_DEBUG));
-    androplay_logf(priority, "UxPlay", "%s", message ? message : "");
+    castbay_logf(priority, "UxPlay", "%s", message ? message : "");
 }
 
 /* Splits a DNS TXT record (length-prefixed entries) into "key=value" Java strings. */
@@ -391,7 +391,7 @@ void stopLocked() {
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeStart(
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeStart(
     JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile,
     jstring language, jint displayWidth, jint displayHeight, jint maxFps, jstring password,
     jboolean allowTakeover, jboolean enableH265, jint preferredPort) {
@@ -546,13 +546,13 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeIsRunning(JNIEnv *, jclass) {
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeIsRunning(JNIEnv *, jclass) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     return g_raop && raop_is_running(g_raop) ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeStop(JNIEnv *, jclass) {
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeStop(JNIEnv *, jclass) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     stopLocked();
 }
@@ -560,7 +560,7 @@ Java_com_androplay_protocol_AirPlayNative_nativeStop(JNIEnv *, jclass) {
 /* Ends the current sender's session from the TV (e.g. the remote's Back key): its connections
    close as the receiver keeps running, so the sender sees casting stop. */
 extern "C" JNIEXPORT void JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeDisconnect(JNIEnv *, jclass) {
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeDisconnect(JNIEnv *, jclass) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     if (!g_raop) return;
     LOGI("Ending the AirPlay session from the TV");
@@ -569,7 +569,7 @@ Java_com_androplay_protocol_AirPlayNative_nativeDisconnect(JNIEnv *, jclass) {
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeAirPlayTxtRecord(JNIEnv *env, jclass) {
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeAirPlayTxtRecord(JNIEnv *env, jclass) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     int length = 0;
     const char *txt = g_dnssd ? dnssd_get_airplay_txt(g_dnssd, &length) : nullptr;
@@ -577,7 +577,7 @@ Java_com_androplay_protocol_AirPlayNative_nativeAirPlayTxtRecord(JNIEnv *env, jc
 }
 
 extern "C" JNIEXPORT jobjectArray JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeRaopTxtRecord(JNIEnv *env, jclass) {
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeRaopTxtRecord(JNIEnv *env, jclass) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     int length = 0;
     const char *txt = g_dnssd ? dnssd_get_raop_txt(g_dnssd, &length) : nullptr;
@@ -585,27 +585,27 @@ Java_com_androplay_protocol_AirPlayNative_nativeRaopTxtRecord(JNIEnv *env, jclas
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeSetLogFile(JNIEnv *env, jclass, jstring path) {
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeSetLogFile(JNIEnv *env, jclass, jstring path) {
     const char *file = path ? env->GetStringUTFChars(path, nullptr) : nullptr;
-    androplay_log_open(file);
+    castbay_log_open(file);
     if (file) env->ReleaseStringUTFChars(path, file);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeSetVideoSink(JNIEnv *env, jclass, jobject sink) {
-    androplay::setVideoSink(env, sink);
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeSetVideoSink(JNIEnv *env, jclass, jobject sink) {
+    castbay::setVideoSink(env, sink);
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_androplay_protocol_AirPlayNative_nativeSetAudioSink(JNIEnv *env, jclass, jobject sink) {
-    androplay::setAudioSink(env, sink);
+Java_com_weenas_castbay_protocol_AirPlayNative_nativeSetAudioSink(JNIEnv *env, jclass, jobject sink) {
+    castbay::setAudioSink(env, sink);
 }
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *) {
-    androplay::initJvm(vm);
+    castbay::initJvm(vm);
     JNIEnv *env = nullptr;
     if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) return JNI_ERR;
-    jclass local = env->FindClass("com/androplay/protocol/AirPlayNative");
+    jclass local = env->FindClass("com/weenas/castbay/protocol/AirPlayNative");
     if (!local) return JNI_ERR;
     g_native_class = reinterpret_cast<jclass>(env->NewGlobalRef(local));
     g_on_connection_started = env->GetStaticMethodID(local, "onConnectionStarted", "()V");

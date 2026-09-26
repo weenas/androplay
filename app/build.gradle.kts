@@ -13,17 +13,17 @@ val enableNativeBuild = providers.gradleProperty("enableNativeBuild")
     .orElse(false)
 
 android {
-    namespace = "com.androplay"
+    namespace = "com.weenas.castbay"
     compileSdk = 35
     buildToolsVersion = "35.0.0"
 
     defaultConfig {
-        applicationId = "com.androplay"
+        applicationId = "com.weenas.castbay"
         minSdk = 26
         targetSdk = 35
         // Bumped for every build installed on a test TV; the name's last part matches versionCode.
-        versionCode = 25
-        versionName = "1.0.25"
+        versionCode = 26
+        versionName = "1.0.26"
 
         if (enableNativeBuild.get()) {
             externalNativeBuild {

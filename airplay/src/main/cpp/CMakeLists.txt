@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(androplay_protocol LANGUAGES C CXX)
+project(castbay_protocol LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -95,12 +95,12 @@ target_include_directories(alac PUBLIC ${ALAC_CODEC})
 # EndianPortable.c only recognises x86 and Windows as little-endian; ARM is too.
 target_compile_definitions(alac PRIVATE TARGET_RT_LITTLE_ENDIAN=1)
 
-add_library(androplay_protocol SHARED
+add_library(castbay_protocol SHARED
     jni_bridge.cpp
     video_sink.cpp
     audio_sink.cpp
     alac_decoder.cpp
     file_log.cpp
 )
-target_include_directories(androplay_protocol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(androplay_protocol PRIVATE uxplay alac log android)
+target_include_directories(castbay_protocol PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(castbay_protocol PRIVATE uxplay alac log android)

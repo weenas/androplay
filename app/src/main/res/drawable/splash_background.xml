@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The launch window's background: shown by the system the moment AndroPlay starts, until the
+<!-- The launch window's background: shown by the system the moment CastBay starts, until the
      first frame is drawn (seconds on slow TV chips). TV windows are 16:9, like the image. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_background" />

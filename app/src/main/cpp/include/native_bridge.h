@@ -4,7 +4,7 @@
 #include <jni.h>
 #include <string>
 
-namespace androplay {
+namespace castbay {
 
 class NativeBridge {
 public:
@@ -35,4 +35,4 @@ private:
         jint fps, jint bitrate, jint frameCount);
 };
 
-} // namespace androplay
+} // namespace castbay

@@ -1,10 +1,10 @@
-# AndroPlay - AirPlay Receiver for Android TV
+# CastBay - AirPlay Receiver for Android TV
 
 An open-source Android TV project for receiving AirPlay streams. The receiver is under active development: screen mirroring and in-app video casting (e.g. the YouTube app) work on real devices.
 
-## What is AndroPlay?
+## What is CastBay?
 
-AndroPlay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The protocol module embeds the protocol library (`lib/`) from [UxPlay](https://github.com/FDH2/UxPlay), with Android NsdManager advertising, MediaCodec/AudioTrack output for mirroring, and Media3 ExoPlayer for AirPlay video.
+CastBay aims to receive screen mirroring, audio, and video streams from AirPlay-enabled devices. The protocol module embeds the protocol library (`lib/`) from [UxPlay](https://github.com/FDH2/UxPlay), with Android NsdManager advertising, MediaCodec/AudioTrack output for mirroring, and Media3 ExoPlayer for AirPlay video.
 
 ## Planned Features
 
@@ -45,7 +45,7 @@ Not done yet: audio-only AirPlay (music apps send ALAC, which Android has no bui
 ```bash
 # Clone protocol dependencies with the repository
 git clone --recurse-submodules git@github.com:weenas/androplay.git
-cd AndroPlay
+cd CastBay
 
 # Build (requires JDK 17-21, Android SDK 35, NDK 27.0.12077973, and CMake 3.22.1;
 # JDK 26 breaks AGP 8.7.3's prefab step)
@@ -61,10 +61,10 @@ git submodule update --init --recursive
 ## Project Structure
 
 ```
-AndroPlay/
+CastBay/
 ├── app/                    # Android application
 │   ├── src/main/
-│   │   ├── java/com/androplay/
+│   │   ├── java/com/weenas/castbay/
 │   │   │   ├── MainActivity.kt
 │   │   │   ├── service/       # Service lifecycle and bridge
 │   │   │   ├── ui/            # Compose UI screens

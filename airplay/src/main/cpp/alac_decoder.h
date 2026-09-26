@@ -6,7 +6,7 @@
 
 class ALACDecoder;
 
-namespace androplay {
+namespace castbay {
 
 /**
  * Decodes the ALAC frames AirPlay audio streaming sends (compression type 2):
@@ -25,4 +25,4 @@ private:
     bool ready_ = false;
 };
 
-}  // namespace androplay
+}  // namespace castbay

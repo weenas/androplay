@@ -3,7 +3,7 @@
 #include <jni.h>
 #include <cstdint>
 
-namespace androplay {
+namespace castbay {
 void setAudioSink(JNIEnv *env, jobject sink);
 /** Compressed AAC-ELD frame (screen mirroring). */
 void dispatchAudio(const uint8_t *data, int length, int64_t ptsUs);
