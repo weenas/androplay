@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  AirPlay video is played from playlists the protocol core serves on http://localhost:<port>.
-  Allow cleartext only for that loopback server; everything else stays HTTPS-only.
+  AirPlay video plays whatever URL the sender hands over: usually the protocol core's local
+  HLS server (http://localhost:<port>), but some apps (e.g. Bilibili) pass plain http media
+  URLs from their CDNs. The app itself only downloads media, so cleartext is permitted.
 -->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>
