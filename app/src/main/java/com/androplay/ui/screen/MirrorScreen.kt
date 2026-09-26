@@ -589,9 +589,11 @@ private fun MusicBackdrop(coverArt: ByteArray?) {
     val backdrop by produceState<Backdrop.Result?>(null, coverArt) {
         value = coverArt?.let { cover -> withContext(Dispatchers.Default) { Backdrop.fromCover(cover) } }
     }
-    val image = backdrop?.bitmap?.asImageBitmap()
-        // Only fall back while there is no cover at all, not while one is being blurred.
-        ?: LocalBackgroundImage.current.takeIf { coverArt == null }
+    // Remembered: this recomposes with every progress tick, and a fresh wrapper each time made
+    // the Crossfade below restart over and over, so the backdrop flickered.
+    val blurred = remember(backdrop) { backdrop?.bitmap?.asImageBitmap() }
+    // Only fall back while there is no cover at all, not while one is being blurred.
+    val image = blurred ?: LocalBackgroundImage.current.takeIf { coverArt == null }
     Crossfade(targetState = image, animationSpec = tween(BACKDROP_FADE_MS), label = "backdrop") { current ->
         if (current != null) {
             Image(
