@@ -42,9 +42,9 @@ img { max-width: 100%; display: block; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .top .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; font-size: 19px; }
+.brand { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 700; font-size: 19px; }
 .brand:hover { text-decoration: none; }
-.brand img { width: 30px; height: 30px; }
+.brand img { width: 36px; height: 36px; }
 .nav { display: flex; gap: 22px; margin-left: auto; }
 .nav a { color: var(--text-2); font-size: 15px; }
 .nav a:hover { color: var(--text); text-decoration: none; }

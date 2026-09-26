@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/cb-wordmark-inline-dark.png">
+    <img src="branding/cb-wordmark-inline-light.png" alt="CastBay 映湾" width="480">
+  </picture>
+</p>
+
 # 映湾 CastBay: AirPlay and DLNA Receiver for Android TV
 
 **Website: [castbay.weenas.com](https://castbay.weenas.com)** · **Download: [Releases](https://github.com/weenas/castbay/releases)** · [Privacy policy](https://castbay.weenas.com/privacy)
@@ -69,6 +76,7 @@ castbay/
 ├── airplay/                # Android library, JNI bridge, and native protocol build
 ├── third_party/            # Pinned UxPlay, libplist and ALAC submodules
 ├── website/                # castbay.weenas.com (Cloudflare Pages)
+├── branding/               # Logo and wordmark masters (SVG and PNG)
 └── README.md
 ```
 

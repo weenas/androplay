@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import com.weenas.castbay.R
 import com.weenas.castbay.ui.mirroringLabel
 import com.weenas.castbay.ui.AppBackground
+import com.weenas.castbay.ui.BrandTitle
 import com.weenas.castbay.ui.Backdrop
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -246,12 +247,7 @@ fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit, starting: Boole
         }
     }
     HomeLayout(info = { ReceiverInfo(viewModel = viewModel) }) {
-        Text(
-            text = stringResource(R.string.app_name),
-            fontSize = 48.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
+        BrandTitle()
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.app_tagline),
