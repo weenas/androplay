@@ -1,0 +1,144 @@
+package com.androplay.dlna
+
+/**
+ * A DLNA media renderer's control logic: turns AVTransport, RenderingControl and
+ * ConnectionManager actions into calls on a [Target] (the player) and answers from its state.
+ * Thread-safe; actions arrive on the HTTP server's threads.
+ */
+class DlnaRenderer(private val target: Target) {
+    /** What the renderer drives; implemented by the app's player. */
+    interface Target {
+        /** A new media URL from SetAVTransportURI; playback starts on [play]. */
+        fun open(url: String, title: String?)
+        fun play()
+        fun pause()
+        fun stop()
+        fun seek(positionSec: Double)
+        fun setVolume(percent: Int)
+        fun setMuted(muted: Boolean)
+        fun status(): Status
+    }
+
+    /** [state] is one of [DlnaState.TRANSPORT_STATES]; [volume] 0-100. */
+    data class Status(
+        val state: String,
+        val positionSec: Double = 0.0,
+        val durationSec: Double = 0.0,
+        val volume: Int = 100,
+        val muted: Boolean = false
+    )
+
+    private var uri = ""
+    private var metadata = ""
+
+    /** The out arguments of [action] on [service], in SCPD order; throws [Soap.Fault]. */
+    @Synchronized
+    fun handle(service: UpnpDescriptions.Service, action: Soap.Action): List<Pair<String, String>> = when (service) {
+        UpnpDescriptions.AV_TRANSPORT -> avTransport(action)
+        UpnpDescriptions.RENDERING_CONTROL -> renderingControl(action)
+        else -> connectionManager(action)
+    }
+
+    private fun avTransport(action: Soap.Action): List<Pair<String, String>> {
+        val status = target.status()
+        return when (action.name) {
+            "SetAVTransportURI" -> {
+                val url = action.args["CurrentURI"]?.trim().orEmpty()
+                if (url.isEmpty()) throw Soap.Fault(714, "Illegal MIME-type")
+                uri = url
+                metadata = action.args["CurrentURIMetaData"].orEmpty()
+                target.open(url, DlnaState.title(metadata))
+                emptyList()
+            }
+            "Play" -> {
+                if (uri.isEmpty()) throw Soap.Fault(701, "Transition not available")
+                target.play()
+                emptyList()
+            }
+            "Pause" -> { target.pause(); emptyList() }
+            "Stop" -> { target.stop(); emptyList() }
+            "Seek" -> {
+                val unit = action.args["Unit"].orEmpty()
+                if (unit != "REL_TIME" && unit != "ABS_TIME") throw Soap.Fault(710, "Seek mode not supported")
+                val position = DlnaState.parseTime(action.args["Target"]) ?: throw Soap.Fault(711, "Illegal seek target")
+                target.seek(position)
+                emptyList()
+            }
+            "Next", "Previous" -> throw Soap.Fault(701, "Transition not available")
+            "GetTransportInfo" -> listOf(
+                "CurrentTransportState" to (if (uri.isEmpty()) DlnaState.NO_MEDIA else status.state),
+                "CurrentTransportStatus" to "OK",
+                "CurrentSpeed" to "1"
+            )
+            "GetPositionInfo" -> {
+                val position = DlnaState.formatTime(status.positionSec)
+                listOf(
+                    "Track" to (if (uri.isEmpty()) "0" else "1"),
+                    "TrackDuration" to DlnaState.formatTime(status.durationSec),
+                    "TrackMetaData" to metadata,
+                    "TrackURI" to uri,
+                    "RelTime" to position,
+                    "AbsTime" to position,
+                    "RelCount" to "2147483647",
+                    "AbsCount" to "2147483647"
+                )
+            }
+            "GetMediaInfo" -> listOf(
+                "NrTracks" to (if (uri.isEmpty()) "0" else "1"),
+                "MediaDuration" to DlnaState.formatTime(status.durationSec),
+                "CurrentURI" to uri,
+                "CurrentURIMetaData" to metadata,
+                "NextURI" to "",
+                "NextURIMetaData" to "",
+                "PlayMedium" to "NETWORK",
+                "RecordMedium" to "NOT_IMPLEMENTED",
+                "WriteStatus" to "NOT_IMPLEMENTED"
+            )
+            "GetDeviceCapabilities" -> listOf(
+                "PlayMedia" to "NETWORK",
+                "RecMedia" to "NOT_IMPLEMENTED",
+                "RecQualityModes" to "NOT_IMPLEMENTED"
+            )
+            "GetTransportSettings" -> listOf("PlayMode" to "NORMAL", "RecQualityMode" to "NOT_IMPLEMENTED")
+            "GetCurrentTransportActions" -> listOf(
+                "Actions" to when (status.state) {
+                    DlnaState.PLAYING -> "Pause,Stop,Seek"
+                    DlnaState.PAUSED -> "Play,Stop,Seek"
+                    else -> if (uri.isEmpty()) "" else "Play"
+                }
+            )
+            else -> throw Soap.Fault(401, "Invalid Action")
+        }
+    }
+
+    private fun renderingControl(action: Soap.Action): List<Pair<String, String>> {
+        val status = target.status()
+        return when (action.name) {
+            "GetVolume" -> listOf("CurrentVolume" to status.volume.toString())
+            "SetVolume" -> {
+                val volume = action.args["DesiredVolume"]?.trim()?.toIntOrNull()?.takeIf { it in 0..100 }
+                    ?: throw Soap.Fault(402, "Invalid Args")
+                target.setVolume(volume)
+                emptyList()
+            }
+            "GetMute" -> listOf("CurrentMute" to if (status.muted) "1" else "0")
+            "SetMute" -> {
+                target.setMuted(action.args["DesiredMute"]?.trim().let { it == "1" || it.equals("true", ignoreCase = true) })
+                emptyList()
+            }
+            "ListPresets" -> listOf("CurrentPresetNameList" to "FactoryDefaults")
+            "SelectPreset" -> emptyList()
+            else -> throw Soap.Fault(401, "Invalid Action")
+        }
+    }
+
+    private fun connectionManager(action: Soap.Action): List<Pair<String, String>> = when (action.name) {
+        "GetProtocolInfo" -> listOf("Source" to "", "Sink" to DlnaState.SINK_PROTOCOL_INFO)
+        "GetCurrentConnectionIDs" -> listOf("ConnectionIDs" to "0")
+        "GetCurrentConnectionInfo" -> listOf(
+            "RcsID" to "0", "AVTransportID" to "0", "ProtocolInfo" to "", "PeerConnectionManager" to "",
+            "PeerConnectionID" to "-1", "Direction" to "Input", "Status" to "OK"
+        )
+        else -> throw Soap.Fault(401, "Invalid Action")
+    }
+}
