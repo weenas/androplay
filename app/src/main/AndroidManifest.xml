@@ -51,7 +51,10 @@
             android:resizeableActivity="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <!-- LEANBACK_LAUNCHER for Android TV home screens; LAUNCHER for vendor app lists
+                     (e.g. TCL's "My apps") that only show regular launcher apps. -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
