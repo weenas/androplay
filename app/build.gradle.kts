@@ -22,8 +22,8 @@ android {
         minSdk = 26
         targetSdk = 35
         // Bumped for every build installed on a test TV; the name's last part matches versionCode.
-        versionCode = 21
-        versionName = "1.0.21"
+        versionCode = 22
+        versionName = "1.0.22"
 
         if (enableNativeBuild.get()) {
             externalNativeBuild {
@@ -37,7 +37,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 drops the unused parts of Compose, Media3 and Kotlin (about 2/3 of the dex).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            // Signed with the debug key for now, so it installs over test builds on TVs.
+            // TODO: a real release key before publishing.
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
