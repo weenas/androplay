@@ -8,7 +8,10 @@ package com.androplay.dlna
 class DlnaRenderer(private val target: Target) {
     /** What the renderer drives; implemented by the app's player. */
     interface Target {
-        /** A new media URL from SetAVTransportURI; playback starts on [play]. */
+        /**
+         * A new media URL from SetAVTransportURI. May throw [Soap.Fault] to refuse it, e.g.
+         * while another device is casting.
+         */
         fun open(url: String, title: String?)
         fun play()
         fun pause()
@@ -78,9 +81,10 @@ class DlnaRenderer(private val target: Target) {
             "SetAVTransportURI" -> {
                 val url = action.args["CurrentURI"]?.trim().orEmpty()
                 if (url.isEmpty()) throw Soap.Fault(714, "Illegal MIME-type")
+                val newMetadata = action.args["CurrentURIMetaData"].orEmpty()
+                target.open(url, DlnaState.title(newMetadata))
                 uri = url
-                metadata = action.args["CurrentURIMetaData"].orEmpty()
-                target.open(url, DlnaState.title(metadata))
+                metadata = newMetadata
                 emptyList()
             }
             "Play" -> {
