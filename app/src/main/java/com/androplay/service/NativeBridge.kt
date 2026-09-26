@@ -28,6 +28,9 @@ class NativeBridge(
 ) {
     companion object {
         private const val TAG = "NativeBridge"
+        private const val KEY_AIRPLAY_PORT = "airplay"
+        /** Apple TVs listen on 7000; used when free. */
+        private const val AIRPLAY_DEFAULT_PORT = 7000
         val isAvailable: Boolean
 
         init {
@@ -43,11 +46,13 @@ class NativeBridge(
     }
 
     private var keyFile: String? = null
+    private var ports: android.content.SharedPreferences? = null
     private var language = "en"
 
     fun initialize(context: Context) {
         Log.d(TAG, "Initializing native bridge")
         keyFile = java.io.File(context.noBackupFilesDir, "airplay_pairing_key.pem").absolutePath
+        ports = context.getSharedPreferences("receiver_ports", Context.MODE_PRIVATE)
         language = java.util.Locale.getDefault().toLanguageTag()
         if (!isAvailable) return
         AirPlayNative.connectionListener = onConnectionStarted
@@ -98,10 +103,14 @@ class NativeBridge(
         val key = keyFile ?: return 0
         if (!isAvailable) return 0
         return try {
+            // AirPlay's usual port first, then whichever port worked last time.
+            val preferred = ports?.getInt(KEY_AIRPLAY_PORT, AIRPLAY_DEFAULT_PORT) ?: AIRPLAY_DEFAULT_PORT
             AirPlayNative.start(
                 deviceName, hardwareAddress, key, language,
-                profile.width, profile.height, maxFps, password, allowTakeover, profile.h265
-            )
+                profile.width, profile.height, maxFps, password, allowTakeover, profile.h265, preferred
+            ).also { port ->
+                if (port > 0 && port != preferred) ports?.edit()?.putInt(KEY_AIRPLAY_PORT, port)?.apply()
+            }
         } catch (e: UnsatisfiedLinkError) {
             Log.e(TAG, "Native start method is unavailable", e)
             0

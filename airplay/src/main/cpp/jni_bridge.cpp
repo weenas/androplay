@@ -394,7 +394,7 @@ extern "C" JNIEXPORT jint JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeStart(
     JNIEnv *env, jclass, jstring deviceName, jbyteArray hardwareAddress, jstring keyFile,
     jstring language, jint displayWidth, jint displayHeight, jint maxFps, jstring password,
-    jboolean allowTakeover, jboolean enableH265) {
+    jboolean allowTakeover, jboolean enableH265, jint preferredPort) {
     std::lock_guard<std::mutex> lock(g_server_mutex);
     stopLocked();
     if (!deviceName || !hardwareAddress || !keyFile || !language || !password ||
@@ -516,11 +516,22 @@ Java_com_androplay_protocol_AirPlayNative_nativeStart(
     unsigned short udp[3] = {0, 0, 0};
     raop_set_tcp_ports(g_raop, tcp);
     raop_set_udp_ports(g_raop, udp);
-    unsigned short port = raop_get_port(g_raop);
+    // The same port as last time when it is free: senders (iPhones especially) cache the
+    // advertised port, and find a receiver that keeps it again sooner after a restart.
+    unsigned short port = preferredPort > 0 && preferredPort <= 65535 ? static_cast<unsigned short>(preferredPort) : 0;
     if (raop_start_httpd(g_raop, &port) < 0) {
-        LOGE("raop_start_httpd failed");
-        stopLocked();
-        return 0;
+        if (port == 0) {
+            LOGE("raop_start_httpd failed");
+            stopLocked();
+            return 0;
+        }
+        LOGI("Port %d is taken, using another one", static_cast<int>(preferredPort));
+        port = 0;
+        if (raop_start_httpd(g_raop, &port) < 0) {
+            LOGE("raop_start_httpd failed");
+            stopLocked();
+            return 0;
+        }
     }
     raop_set_port(g_raop, port);
     // Copies the pairing public key into the dnssd record, so it must precede building TXT.

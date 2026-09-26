@@ -73,13 +73,15 @@ object AirPlayNative {
         maxFps: Int,
         password: String,
         allowTakeover: Boolean,
-        enableH265: Boolean
+        enableH265: Boolean,
+        /** Tried first (0 = any); another free port is used when it is taken. */
+        preferredPort: Int = 0
     ): Int {
         require(hardwareAddress.size == 6) { "AirPlay hardware address must contain six bytes" }
         require(password.isEmpty() || password.length >= 4) { "AirPlay passwords need at least 4 characters" }
         return nativeStart(
             deviceName, hardwareAddress, keyFile, language, displayWidth, displayHeight, maxFps, password,
-            allowTakeover, enableH265
+            allowTakeover, enableH265, preferredPort
         )
     }
 
@@ -148,7 +150,7 @@ object AirPlayNative {
     @JvmStatic private external fun nativeStart(
         deviceName: String, hardwareAddress: ByteArray, keyFile: String, language: String,
         displayWidth: Int, displayHeight: Int, maxFps: Int, password: String, allowTakeover: Boolean,
-        enableH265: Boolean
+        enableH265: Boolean, preferredPort: Int
     ): Int
     @JvmStatic private external fun nativeStop()
     @JvmStatic private external fun nativeDisconnect()
