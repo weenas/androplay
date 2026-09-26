@@ -10,6 +10,7 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.os.Build
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,7 +42,24 @@ class NetworkMonitor(context: Context) {
     private var capabilities: NetworkCapabilities? = null
     private var links: LinkProperties? = null
 
-    private val callback = object : ConnectivityManager.NetworkCallback(callbackFlags()) {
+    private val callback: Callback =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // API 31+ redacts the SSID in callbacks unless location info is requested.
+            Callback(ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO)
+        } else {
+            Callback()
+        }
+
+    /**
+     * NetworkCallback(int flags) only exists from API 31; calling it on older Android throws
+     * NoSuchMethodError even with flags = 0, so the older constructor is picked separately.
+     */
+    private inner class Callback : ConnectivityManager.NetworkCallback {
+        constructor() : super()
+
+        @RequiresApi(Build.VERSION_CODES.S)
+        constructor(flags: Int) : super(flags)
+
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
             capabilities = caps
             publish()
@@ -113,14 +131,6 @@ class NetworkMonitor(context: Context) {
     }
 
     companion object {
-        /** API 31+ redacts the SSID in callbacks unless location info is requested. */
-        private fun callbackFlags(): Int =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                ConnectivityManager.NetworkCallback.FLAG_INCLUDE_LOCATION_INFO
-            } else {
-                0
-            }
-
         /** Android quotes SSIDs and reports "<unknown ssid>" when it withholds them. */
         fun cleanSsid(raw: String?): String? {
             val value = raw?.trim() ?: return null
