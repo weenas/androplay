@@ -81,7 +81,7 @@ class AirPlayManager private constructor(context: Context) {
         onSessionEnd = ::onNativeStreamStopped
     )
     private val discoveryAdvertiser = AirPlayDiscoveryAdvertiser(context)
-    private val videoRenderer = VideoRenderer(onFrameSizeChanged = ::onFrameSizeChanged)
+    private val videoRenderer = VideoRenderer(context, onFrameSizeChanged = ::onFrameSizeChanged)
     private val audioRenderer = AudioRenderer()
     private val displayManager = context.getSystemService(android.hardware.display.DisplayManager::class.java)
     private val hevcSupport by lazy { HevcSupport.detect() }
