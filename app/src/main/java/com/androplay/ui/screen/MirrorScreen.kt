@@ -75,6 +75,17 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
             if (!menuOpen) contentFocus.requestFocus()
         }
         BackHandler(enabled = menuOpen) { menuOpen = false }
+        // Back leaves casting only when pressed twice, so a stray press doesn't cut it off.
+        var backArmed by remember(kind) { mutableStateOf(false) }
+        BackHandler(enabled = !menuOpen) {
+            if (backArmed) viewModel.endCasting() else backArmed = true
+        }
+        LaunchedEffect(backArmed) {
+            if (backArmed) {
+                delay(BACK_AGAIN_WINDOW_MS)
+                backArmed = false
+            }
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -94,6 +105,19 @@ fun MirrorScreen(viewModel: AirPlayViewModel) {
             }
             if (settings.showStats) {
                 StatsOverlay(viewModel, Modifier.align(Alignment.TopStart).padding(24.dp))
+            }
+            if (backArmed) {
+                Text(
+                    "Press Back again to stop casting",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 64.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xCC000000))
+                        .padding(horizontal = 28.dp, vertical = 14.dp)
+                )
             }
             if (menuOpen) {
                 QuickMenu(
@@ -560,6 +584,7 @@ fun VideoPlayback(viewModel: AirPlayViewModel, pictureMode: String, modifier: Mo
 }
 
 private const val SEEK_STEP_SEC = 10
+private const val BACK_AGAIN_WINDOW_MS = 3000L
 
 private enum class StreamKind { VIDEO, AUDIO, MIRRORING }
 
