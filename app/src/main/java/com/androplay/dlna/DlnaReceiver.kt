@@ -29,7 +29,9 @@ class DlnaReceiver(context: Context) {
         val eventing = DlnaEvents(renderer)
         val server = DlnaHttpServer(renderer, eventing) { UpnpDescriptions.device(friendlyName, uuid) }
         try {
-            val port = server.start()
+            // The same port as last time, so control points' cached descriptions stay valid.
+            val port = server.start(preferences.getInt(KEY_PORT, 0))
+            preferences.edit().putInt(KEY_PORT, port).apply()
             http = server
             events = eventing.also { it.start() }
             ssdp = SsdpServer(uuid) { server.port }.also { it.start() }
@@ -73,5 +75,6 @@ class DlnaReceiver(context: Context) {
     private companion object {
         const val TAG = "AndroPlayDlna"
         const val KEY_UUID = "uuid"
+        const val KEY_PORT = "http_port"
     }
 }

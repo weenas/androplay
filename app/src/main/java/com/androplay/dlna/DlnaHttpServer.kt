@@ -24,8 +24,18 @@ class DlnaHttpServer(
 
     val port: Int get() = server?.localPort ?: 0
 
-    fun start(): Int {
-        val socket = ServerSocket(0)
+    /** Listens on [preferredPort] if free (0 = any), else on any free port; returns the port. */
+    fun start(preferredPort: Int = 0): Int {
+        val socket = ServerSocket().apply {
+            reuseAddress = true
+            try {
+                bind(java.net.InetSocketAddress(preferredPort))
+            } catch (taken: java.io.IOException) {
+                if (preferredPort == 0) throw taken
+                Log.i(TAG, "DLNA port $preferredPort is taken, using another one")
+                bind(java.net.InetSocketAddress(0))
+            }
+        }
         server = socket
         val pool = Executors.newCachedThreadPool { runnable ->
             Thread(runnable, "DLNA-http").apply { isDaemon = true }
