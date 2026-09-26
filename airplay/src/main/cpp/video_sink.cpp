@@ -3,7 +3,7 @@
 #include "file_log.h"
 #include <mutex>
 
-#define LOGE(...) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayVideoSink", __VA_ARGS__)
+#define LOGE(...) castbay_logf(ANDROID_LOG_ERROR, "CastBayVideoSink", __VA_ARGS__)
 
 namespace {
 JavaVM *g_vm = nullptr;
@@ -23,7 +23,7 @@ JNIEnv *currentEnv() {
 }
 }
 
-namespace androplay {
+namespace castbay {
 void initJvm(JavaVM *vm) { g_vm = vm; }
 JavaVM *jvm() { return g_vm; }
 

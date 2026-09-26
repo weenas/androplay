@@ -1,6 +1,6 @@
 #include "airplay_engine.h"
 
-namespace androplay {
+namespace castbay {
 
 AirPlayEngine& AirPlayEngine::instance() {
     static AirPlayEngine engine;
@@ -74,4 +74,4 @@ void AirPlayEngine::onError(const std::function<void(const std::string&)>& callb
     errorCallback_ = callback;
 }
 
-} // namespace androplay
+} // namespace castbay

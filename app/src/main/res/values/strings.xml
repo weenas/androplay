@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">AndroPlay</string>
+    <string name="app_name" translatable="false">CastBay</string>
     <string name="app_tagline">AirPlay Receiver for Android TV</string>
 
     <!-- Common -->
@@ -19,7 +19,7 @@
     <string name="waiting_how_dlna">On iPhone or iPad: Control Center → Screen Mirroring → %1$s. In apps, tap the AirPlay icon, or the app\'s own cast button (e.g. Bilibili).</string>
     <string name="waiting_same_network">Your device must be on the same network as the TV.</string>
     <string name="starting">Starting…</string>
-    <string name="advertising_only_title">AndroPlay is visible on the local network</string>
+    <string name="advertising_only_title">CastBay is visible on the local network</string>
     <string name="advertising_only_detail">Discovery preview only — AirPlay streaming is not available yet.</string>
     <string name="connecting">Connecting…</string>
     <string name="connected">Connected</string>
@@ -117,7 +117,7 @@
     <string name="about_powered_by">Powered by UxPlay (GPL-3.0)</string>
 
     <!-- Notification -->
-    <string name="notification_channel">AndroPlay Service</string>
+    <string name="notification_channel">CastBay Service</string>
     <string name="notification_starting">Starting receiver</string>
     <string name="notification_waiting">Waiting for AirPlay or DLNA casting</string>
     <string name="notification_discovery_only">Publishing AirPlay discovery</string>

@@ -148,6 +148,6 @@ const char *dnssd_get_airplay_txt(dnssd_t *dnssd_public, int *length) {
 }
 
 void dnssd_error_text(int *error, const char *appname) {
-    androplay_logf(ANDROID_LOG_ERROR, appname ? appname : "dnssd",
+    castbay_logf(ANDROID_LOG_ERROR, appname ? appname : "dnssd",
                         "DNS-SD TXT record error %d", error ? *error : 0);
 }

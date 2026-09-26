@@ -1,12 +1,12 @@
 <resources>
-    <style name="Theme.AndroPlay" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.CastBay" parent="android:Theme.Material.NoActionBar">
         <item name="android:colorBackground">@android:color/black</item>
         <item name="android:windowBackground">@android:color/black</item>
         <item name="android:statusBarColor">@android:color/black</item>
     </style>
 
-    <!-- Only for launching: MainActivity switches to Theme.AndroPlay in onCreate. -->
-    <style name="Theme.AndroPlay.Starting">
+    <!-- Only for launching: MainActivity switches to Theme.CastBay in onCreate. -->
+    <style name="Theme.CastBay.Starting">
         <item name="android:windowBackground">@drawable/splash_background</item>
     </style>
 

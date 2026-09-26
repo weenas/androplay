@@ -51,7 +51,7 @@ void writeLine(int fd, int priority, const char *tag, const char *message) {
 }
 }  // namespace
 
-extern "C" void androplay_log_open(const char *path) {
+extern "C" void castbay_log_open(const char *path) {
     std::lock_guard<std::mutex> lock(g_mutex);
     int current = g_fd.load();
     if (!path || !*path) {
@@ -69,7 +69,7 @@ extern "C" void androplay_log_open(const char *path) {
     }
 }
 
-extern "C" int androplay_logf(int priority, const char *tag, const char *format, ...) {
+extern "C" int castbay_logf(int priority, const char *tag, const char *format, ...) {
     char message[3072];
     va_list args;
     va_start(args, format);

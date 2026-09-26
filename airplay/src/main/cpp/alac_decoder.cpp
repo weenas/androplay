@@ -5,7 +5,7 @@
 #include "ALACBitUtilities.h"
 #include "ALACDecoder.h"
 
-namespace androplay {
+namespace castbay {
 namespace {
 constexpr uint32_t kFrameLength = 352;
 constexpr uint32_t kChannels = 2;
@@ -23,7 +23,7 @@ uint8_t kMagicCookie[] = {
 
 AlacDecoder::AlacDecoder() : decoder_(new ALACDecoder()) {
     ready_ = decoder_->Init(kMagicCookie, sizeof(kMagicCookie)) == ALAC_noErr;
-    if (!ready_) androplay_logf(ANDROID_LOG_ERROR, "AndroPlayAlac", "ALAC decoder init failed");
+    if (!ready_) castbay_logf(ANDROID_LOG_ERROR, "CastBayAlac", "ALAC decoder init failed");
 }
 
 AlacDecoder::~AlacDecoder() = default;
@@ -42,4 +42,4 @@ bool AlacDecoder::decode(const uint8_t *frame, int length, std::vector<int16_t> 
     return true;
 }
 
-}  // namespace androplay
+}  // namespace castbay

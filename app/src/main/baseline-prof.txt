@@ -1,4 +1,4 @@
-# Baseline profile: AndroPlay's own code, compiled ahead of time at install (Compose, Media3
+# Baseline profile: CastBay's own code, compiled ahead of time at install (Compose, Media3
 # and the other libraries ship their own). Speeds up the first launch on slow TV chips.
-HSPLcom/androplay/**->**(**)**
-Lcom/androplay/**;
+HSPLcom/weenas/castbay/**->**(**)**
+Lcom/weenas/castbay/**;
