@@ -31,6 +31,10 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -582,13 +586,12 @@ fun AudioPlayback(
  */
 @Composable
 private fun MusicBackdrop(coverArt: ByteArray?) {
-    val blurred by produceState<ImageBitmap?>(null, coverArt) {
-        value = coverArt?.let { cover ->
-            withContext(Dispatchers.Default) { Backdrop.fromCover(cover)?.asImageBitmap() }
-        }
+    val backdrop by produceState<Backdrop.Result?>(null, coverArt) {
+        value = coverArt?.let { cover -> withContext(Dispatchers.Default) { Backdrop.fromCover(cover) } }
     }
-    // Only fall back while there is no cover at all, not while one is being blurred.
-    val image = blurred ?: LocalBackgroundImage.current.takeIf { coverArt == null }
+    val image = backdrop?.bitmap?.asImageBitmap()
+        // Only fall back while there is no cover at all, not while one is being blurred.
+        ?: LocalBackgroundImage.current.takeIf { coverArt == null }
     Crossfade(targetState = image, animationSpec = tween(BACKDROP_FADE_MS), label = "backdrop") { current ->
         if (current != null) {
             Image(
@@ -600,12 +603,18 @@ private fun MusicBackdrop(coverArt: ByteArray?) {
             )
         }
     }
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = BACKDROP_DIM)))
+    // Light over most covers, darker over bright ones, so white text stays readable.
+    val veil by animateFloatAsState(backdrop?.veil ?: FALLBACK_VEIL, tween(BACKDROP_FADE_MS), label = "veil")
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = veil)))
+    // A faint grain keeps the wide, smooth gradients from showing bands on 8-bit panels.
+    val grain = remember { ShaderBrush(ImageShader(Backdrop.grain().asImageBitmap(), TileMode.Repeated, TileMode.Repeated)) }
+    Box(modifier = Modifier.fillMaxSize().background(grain, alpha = GRAIN_ALPHA))
 }
 
 private const val BACKDROP_FADE_MS = 700
-/** Dark enough for white text over bright covers. */
-private const val BACKDROP_DIM = 0.6f
+/** Over the launch artwork, for songs without a cover. */
+private const val FALLBACK_VEIL = 0.6f
+private const val GRAIN_ALPHA = 0.04f
 
 /** A few lines of [lyrics] around the one being sung at [positionSec], which is highlighted. */
 @Composable
