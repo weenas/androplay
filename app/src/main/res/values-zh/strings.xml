@@ -61,8 +61,12 @@
     <string name="press_back_again">再按一次返回键结束投屏</string>
     <string name="airplay_audio">AirPlay 音频</string>
     <string name="cover_art">封面</string>
-    <string name="audio_hint_playing">OK：暂停    ◀ ▶：上一首 / 下一首</string>
-    <string name="audio_hint_paused">OK：播放    ◀ ▶：上一首 / 下一首</string>
+    <string name="music_play">播放</string>
+    <string name="music_pause">暂停</string>
+    <string name="music_previous">上一首</string>
+    <string name="music_next">下一首</string>
+    <string name="music_rewind">快退</string>
+    <string name="music_fast_forward">快进</string>
 
     <!-- Quick menu -->
     <string name="menu_title">播放</string>

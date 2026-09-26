@@ -73,6 +73,8 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     fun remoteControl(command: com.androplay.service.DacpClient.Command) = manager.remoteControl(command)
 
+    fun skipMusic(forward: Boolean) = manager.skipMusic(forward)
+
     fun toggleVideoPause() = manager.toggleVideoPause()
 
     private val lyricsClient = com.androplay.service.LyricsClient()

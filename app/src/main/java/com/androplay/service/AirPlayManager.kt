@@ -440,6 +440,12 @@ class AirPlayManager private constructor(private val context: Context) {
         dacp.send(command)
     }
 
+    /** Skips the sender's music about ten seconds forward or back (it can't seek exactly). */
+    fun skipMusic(forward: Boolean) {
+        Log.d(TAG, "Remote control: skip ${if (forward) "forward" else "back"}")
+        dacp.skip(forward)
+    }
+
     /** Metadata can arrive before the audio does, so it is kept until the screen shows it. */
     @Synchronized
     private fun updateNowPlaying(transform: (NowPlaying) -> NowPlaying) {

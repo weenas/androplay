@@ -62,8 +62,12 @@
     <string name="press_back_again">Press Back again to stop casting</string>
     <string name="airplay_audio">AirPlay audio</string>
     <string name="cover_art">Cover art</string>
-    <string name="audio_hint_playing">OK: pause    ◀ ▶: previous / next</string>
-    <string name="audio_hint_paused">OK: play    ◀ ▶: previous / next</string>
+    <string name="music_play">Play</string>
+    <string name="music_pause">Pause</string>
+    <string name="music_previous">Previous</string>
+    <string name="music_next">Next</string>
+    <string name="music_rewind">Rewind</string>
+    <string name="music_fast_forward">Fast forward</string>
 
     <!-- Quick menu -->
     <string name="menu_title">Playback</string>
