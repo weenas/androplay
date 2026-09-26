@@ -54,6 +54,15 @@ class DmapMetadataTest {
     }
 
     @Test
+    fun aGapInAudioMeansPaused() {
+        val playing = NowPlaying(positionSec = 10.0, durationSec = 100.0, positionAtMs = 1_000)
+        assertEquals(false, playing.stalled(lastAudioAtMs = 5_000, nowMs = 5_500))
+        assertEquals(true, playing.stalled(lastAudioAtMs = 5_000, nowMs = 6_200))
+        assertEquals(false, playing.paused(nowMs = 5_000).stalled(lastAudioAtMs = 5_000, nowMs = 9_000))
+        assertEquals("no audio yet", false, playing.stalled(lastAudioAtMs = 0, nowMs = 9_000))
+    }
+
+    @Test
     fun pauseFreezesAndResumeContinuesThePosition() {
         val paused = NowPlaying(positionSec = 10.0, durationSec = 100.0, positionAtMs = 1_000).paused(nowMs = 3_000)
         assertEquals(12.0, paused.currentPositionSec(nowMs = 30_000), 1e-9)

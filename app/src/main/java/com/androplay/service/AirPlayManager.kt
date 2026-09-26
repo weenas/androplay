@@ -12,6 +12,7 @@ class AirPlayManager private constructor(context: Context) {
         private const val TAG = "AirPlayManager"
         private const val DEFAULT_VIDEO_WIDTH = 1920
         private const val DEFAULT_VIDEO_HEIGHT = 1080
+        private const val PAUSE_CHECK_MS = 500L
 
         @Volatile
         private var instance: AirPlayManager? = null
@@ -228,11 +229,27 @@ class AirPlayManager private constructor(context: Context) {
      */
     private fun onPcmAudio(pcm: ByteArray) {
         audioRenderer.renderPcm(pcm)
+        lastAudioAtMs = android.os.SystemClock.elapsedRealtime()
         if (!nowPlaying.playing) updateNowPlaying { it.resumed() }
         if (currentState == AirPlayConnectionState.Connecting) {
             currentStreamInfo = StreamInfo(isAudioOnly = true, nowPlaying = nowPlaying)
             currentState = AirPlayConnectionState.Streaming
             mediaSession.update(nowPlaying)
+            mainHandler.removeCallbacks(pauseWatchdog)
+            mainHandler.postDelayed(pauseWatchdog, PAUSE_CHECK_MS)
+        }
+    }
+
+    @Volatile private var lastAudioAtMs = 0L
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** Freezes the now-playing progress when audio stops arriving (the sender paused). */
+    private val pauseWatchdog = object : Runnable {
+        override fun run() {
+            if (!currentStreamInfo.isAudioOnly) return
+            val lastAudio = lastAudioAtMs
+            if (nowPlaying.stalled(lastAudio)) updateNowPlaying { it.paused(nowMs = lastAudio) }
+            mainHandler.postDelayed(this, PAUSE_CHECK_MS)
         }
     }
 

@@ -26,6 +26,13 @@ data class NowPlaying(
     fun paused(nowMs: Long = SystemClock.elapsedRealtime()) =
         copy(positionSec = currentPositionSec(nowMs), positionAtMs = nowMs, playing = false)
 
+    /**
+     * Whether audio has stopped arriving: senders pause by flushing *or* by tearing the audio
+     * stream down (iOS music apps), so a gap in audio is the reliable pause signal.
+     */
+    fun stalled(lastAudioAtMs: Long, nowMs: Long = SystemClock.elapsedRealtime()): Boolean =
+        playing && lastAudioAtMs > 0 && nowMs - lastAudioAtMs > STALL_MS
+
     /** Resumes counting from [nowMs]. */
     fun resumed(nowMs: Long = SystemClock.elapsedRealtime()) =
         copy(positionAtMs = nowMs, playing = true)
@@ -37,6 +44,11 @@ data class NowPlaying(
             album == other.album && coverArt.contentEquals(other.coverArt) &&
             positionSec == other.positionSec && durationSec == other.durationSec &&
             positionAtMs == other.positionAtMs && playing == other.playing
+
+    companion object {
+        /** Audio packets arrive every ~8 ms; a second without any means playback stopped. */
+        const val STALL_MS = 1000L
+    }
 
     override fun hashCode(): Int =
         listOf(title, artist, album, coverArt?.contentHashCode(), positionSec, durationSec, positionAtMs, playing)
