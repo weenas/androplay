@@ -19,6 +19,8 @@ import com.androplay.viewmodel.AirPlayViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The manifest theme only paints the launch screen; the app itself has a plain background.
+        setTheme(R.style.Theme_AndroPlay)
         super.onCreate(savedInstanceState)
         setContent {
             AndroPlayTheme {
