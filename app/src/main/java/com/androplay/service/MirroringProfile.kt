@@ -44,11 +44,11 @@ data class HevcSupport(
 
 /**
  * What the receiver offers senders for screen mirroring: the codec and the display size they
- * encode to. Senders pick H.265 when it is offered with a 4K display, as UxPlay pairs them.
- * [note] says why the size is capped, when it is.
+ * encode to. Senders only switch to H.265 for displays taller than 1080p (see UxPlay's -h265
+ * notes), so it is offered only together with a 4K display. [note] says why the size is capped.
  */
 data class MirroringProfile(val h265: Boolean, val width: Int, val height: Int, val note: String? = null) {
-    /** For the home and settings screens, e.g. "H.265 · up to 4K" or "H.265 · 1080p (1080p screen)". */
+    /** For the home and settings screens, e.g. "H.265 · up to 4K" or "H.264 · 1080p (1080p screen)". */
     val label: String
         get() {
             val codec = if (h265) "H.265" else "H.264"
@@ -58,17 +58,20 @@ data class MirroringProfile(val h265: Boolean, val width: Int, val height: Int, 
 
     companion object {
         private const val UHD_HEIGHT = 2160
+        private const val FHD_HEIGHT = 1080
 
         /** [panelWidth]/[panelHeight]: the panel's largest mode, not the (often 1080p) UI mode. */
         fun of(settings: ReceiverSettings, hevc: HevcSupport, panelWidth: Int, panelHeight: Int): MirroringProfile {
-            val h265 = settings.videoCodec == ReceiverSettings.CODEC_AUTO && hevc.hardware
-            val (width, height) = settings.displaySize(panelWidth, panelHeight, allowUhd = h265 && hevc.uhd)
+            val hevcAllowed = settings.videoCodec == ReceiverSettings.CODEC_AUTO && hevc.hardware
+            val (width, height) = settings.displaySize(panelWidth, panelHeight, allowUhd = hevcAllowed && hevc.uhd)
+            // At 1080p senders send H.264 anyway, so offering H.265 there would change nothing.
+            val h265 = hevcAllowed && hevc.uhd && height > FHD_HEIGHT
             val panel = minOf(panelWidth, panelHeight)
             val note = when {
                 settings.resolution != ReceiverSettings.RESOLUTION_AUTO || height >= UHD_HEIGHT -> null
                 panel <= 0 -> null
                 panel < UHD_HEIGHT -> "${panel}p screen"
-                h265 -> "decoder can't do 4K"
+                hevcAllowed -> "decoder can't do 4K"
                 settings.videoCodec == ReceiverSettings.CODEC_H264_ONLY -> "4K needs H.265"
                 else -> "no hardware H.265 decoder for 4K"
             }

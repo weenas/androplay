@@ -71,7 +71,7 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                 }
             }
             item {
-                // Auto only offers H.265 when the TV has a hardware HEVC decoder.
+                // Auto only offers H.265 for 4K mirroring on a 4K screen with a hardware HEVC decoder.
                 Text(
                     "This TV: ${viewModel.mirroringProfile(settings).label}",
                     color = Color.Gray,
