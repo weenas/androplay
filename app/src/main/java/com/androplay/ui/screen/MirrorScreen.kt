@@ -26,6 +26,11 @@ import com.androplay.R
 import com.androplay.ui.mirroringLabel
 import com.androplay.ui.AppBackground
 import com.androplay.ui.Backdrop
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import com.androplay.ui.MediaIcons
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -524,12 +529,13 @@ fun AudioPlayback(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 96.dp),
+                .padding(horizontal = 56.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(360.dp)
+                    .size(400.dp)
+                    .shadow(24.dp, RoundedCornerShape(16.dp))
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color(0xFF2A2A2A)),
                 contentAlignment = Alignment.Center
@@ -541,40 +547,44 @@ fun AudioPlayback(
                     Text("♪", fontSize = 120.sp, color = Color.Gray)
                 }
             }
-            Spacer(modifier = Modifier.width(64.dp))
+            Spacer(modifier = Modifier.width(56.dp))
             Column(modifier = Modifier.weight(1f)) {
                 // An explicit line height: the default text style's is 24 sp, so a long title wrapped
                 // onto a second line drawn over the first.
-                Text(nowPlaying.title ?: stringResource(R.string.airplay_audio), fontSize = 36.sp, lineHeight = 46.sp,
-                    fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                // One line each, scrolling when too long, so long names never push the layout
+                // (a TV screen is only ~540 dp tall).
+                Text(nowPlaying.title ?: stringResource(R.string.airplay_audio), fontSize = 48.sp,
+                    fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, modifier = Modifier.marquee())
                 nowPlaying.artist?.let {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(it, fontSize = 26.sp, color = MUSIC_TEXT_SECONDARY, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(it, fontSize = 32.sp, color = MUSIC_TEXT_SECONDARY, maxLines = 1, modifier = Modifier.marquee())
                 }
                 nowPlaying.album?.let {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(it, fontSize = 20.sp, color = MUSIC_TEXT_TERTIARY, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(it, fontSize = 24.sp, color = MUSIC_TEXT_TERTIARY, maxLines = 1, modifier = Modifier.marquee())
                 }
                 if (lyrics != null) {
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                     LyricsView(lyrics, nowPlaying.currentPositionSec(now))
                 }
                 if (nowPlaying.durationSec > 0) {
                     val position = nowPlaying.currentPositionSec(now)
-                    Spacer(modifier = Modifier.height(40.dp))
+                    Spacer(modifier = Modifier.height(28.dp))
+                    // No thumb: it would suggest dragging, and senders can't seek to a time.
                     LinearProgressIndicator(
                         progress = { (position / nowPlaying.durationSec).toFloat() },
                         modifier = Modifier.fillMaxWidth().height(6.dp),
-                        color = Color.White,
-                        trackColor = Color.White.copy(alpha = 0.25f)
+                        color = MUSIC_ACCENT,
+                        trackColor = Color.White.copy(alpha = 0.25f),
+                        drawStopIndicator = {}
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(formatTime(position), fontSize = 18.sp, color = MUSIC_TEXT_TERTIARY)
-                        Text(formatTime(nowPlaying.durationSec), fontSize = 18.sp, color = MUSIC_TEXT_TERTIARY)
+                        Text(formatTime(position), fontSize = 20.sp, color = MUSIC_TEXT_TERTIARY)
+                        Text(formatTime(nowPlaying.durationSec), fontSize = 20.sp, color = MUSIC_TEXT_TERTIARY)
                     }
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
                 // Centred under the progress bar, as in Apple Music. The screen's focus (and so
                 // the remote's OK) starts on play/pause.
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -605,7 +615,8 @@ private fun MusicControls(
             if (playing) MediaIcons.Pause else MediaIcons.Play,
             if (playing) R.string.music_pause else R.string.music_play,
             PLAY_BUTTON_SIZE,
-            playModifier
+            playModifier,
+            main = true
         ) { onCommand(DacpClient.Command.PLAY_PAUSE) }
         MediaButton(MediaIcons.Next, R.string.music_next, MEDIA_BUTTON_SIZE) { onCommand(DacpClient.Command.NEXT) }
         MediaButton(MediaIcons.FastForward, R.string.music_fast_forward, MEDIA_BUTTON_SIZE) { onSkip(true) }
@@ -618,6 +629,8 @@ private fun MediaButton(
     description: Int,
     size: Dp,
     modifier: Modifier = Modifier,
+    /** The main (play/pause) button: a soft accent glow and ring, so it stands out without focus. */
+    main: Boolean = false,
     onClick: () -> Unit
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -630,10 +643,33 @@ private fun MediaButton(
                 scaleX = scale
                 scaleY = scale
             }
+            // Drawn behind (and beyond) the button without taking layout space.
+            .then(
+                if (main) {
+                    Modifier.drawBehind {
+                        drawCircle(
+                            Brush.radialGradient(
+                                listOf(MUSIC_ACCENT.copy(alpha = 0.45f), Color.Transparent),
+                                center = center,
+                                radius = this.size.minDimension * 0.85f
+                            ),
+                            radius = this.size.minDimension * 0.85f
+                        )
+                    }
+                } else {
+                    Modifier
+                }
+            )
             .clip(CircleShape)
             // Frosted glass at rest; the app's accent colour and outline when focused.
             .background(if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.14f))
-            .then(if (focused) Modifier.border(3.dp, Color.White, CircleShape) else Modifier)
+            .then(
+                when {
+                    focused -> Modifier.border(3.dp, Color.White, CircleShape)
+                    main -> Modifier.border(2.dp, MUSIC_ACCENT, CircleShape)
+                    else -> Modifier
+                }
+            )
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -642,6 +678,17 @@ private fun MediaButton(
 }
 
 private val MEDIA_BUTTON_SIZE = 60.dp
+
+/** Scrolls text that doesn't fit, pausing before each pass; text that fits stays still. */
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.marquee(): Modifier = basicMarquee(
+    iterations = Int.MAX_VALUE,
+    initialDelayMillis = 2000,
+    repeatDelayMillis = 2000,
+    velocity = 40.dp
+)
+/** A lighter tint of the app's purple, bright enough on dark backdrops (progress, the main button). */
+private val MUSIC_ACCENT = Color(0xFFA48BF5)
 /**
  * Secondary text on the music screen: translucent white rather than grey, so it keeps its
  * contrast and picks up the tint of the cover's backdrop, as in Apple Music.
@@ -693,15 +740,21 @@ private const val GRAIN_ALPHA = 0.04f
 private fun LyricsView(lyrics: Lyrics, positionSec: Double) {
     val current = lyrics.indexAt(positionSec)
     val first = (current - LYRICS_CONTEXT_LINES).coerceAtLeast(0)
-    Column(modifier = Modifier.height(190.dp)) {
+    Column(modifier = Modifier.height(180.dp)) {
         for (index in first..(current + LYRICS_CONTEXT_LINES).coerceAtMost(lyrics.lines.lastIndex)) {
             val line = lyrics.lines[index].text.ifEmpty { "♪" }
             val active = index == current
+            // The sung line is brightest; the others fade the further away they are.
+            val alpha = when (kotlin.math.abs(index - current)) {
+                0 -> 1f
+                1 -> 0.6f
+                else -> 0.35f
+            }
             Text(
                 line,
-                fontSize = if (active) 24.sp else 20.sp,
+                fontSize = if (active) 26.sp else 22.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
-                color = if (active) Color.White else MUSIC_TEXT_TERTIARY,
+                color = Color.White.copy(alpha = alpha),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(vertical = 3.dp)
