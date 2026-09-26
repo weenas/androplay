@@ -18,6 +18,14 @@ class MediaTracksTest {
     }
 
     @Test
+    fun hidesUndeclaredClosedCaptions() {
+        assertEquals(true, MediaTracks.isPlaceholderCaption("application/cea-608", null))
+        assertEquals(true, MediaTracks.isPlaceholderCaption("application/cea-708", "und"))
+        assertEquals(false, MediaTracks.isPlaceholderCaption("application/cea-608", "en"))
+        assertEquals(false, MediaTracks.isPlaceholderCaption("text/vtt", null))
+    }
+
+    @Test
     fun nextWrapsAround() {
         val off = TrackChoice("Off", null, 0, selected = false)
         val first = TrackChoice("English", null, 0, selected = false)

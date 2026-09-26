@@ -84,6 +84,9 @@ object AirPlayNative {
     }
 
     fun stop() = nativeStop()
+
+    /** Disconnects the current sender; the receiver keeps running for the next one. */
+    fun disconnect() = nativeDisconnect()
     fun isRunning(): Boolean = nativeIsRunning()
     fun setVideoSink(sink: VideoSink?) = nativeSetVideoSink(sink)
 
@@ -148,6 +151,7 @@ object AirPlayNative {
         enableH265: Boolean
     ): Int
     @JvmStatic private external fun nativeStop()
+    @JvmStatic private external fun nativeDisconnect()
     @JvmStatic private external fun nativeIsRunning(): Boolean
     @JvmStatic private external fun nativeAirPlayTxtRecord(): Array<String>
     @JvmStatic private external fun nativeRaopTxtRecord(): Array<String>

@@ -85,6 +85,7 @@ fun QuickMenu(viewModel: AirPlayViewModel, hasPicture: Boolean, player: Player?,
                 MediaTracks.next(subtitleChoices)?.let { MediaTracks.select(player, C.TRACK_TYPE_TEXT, it) }
             }
         }
+        MenuRow("Stop casting", "") { viewModel.endCasting() }
         Text(
             "OK: change    Back: close",
             color = Color(0xFF9E9E9E),

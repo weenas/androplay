@@ -1,6 +1,7 @@
 package com.androplay.service
 
 import androidx.media3.common.C
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.TrackGroup
 import androidx.media3.common.TrackSelectionOverride
@@ -17,7 +18,9 @@ object MediaTracks {
     /** Supported tracks of [type] ([C.TRACK_TYPE_AUDIO] or [C.TRACK_TYPE_TEXT]); subtitles start with "Off". */
     fun choices(player: Player, type: Int): List<TrackChoice> {
         val tracks = player.currentTracks.groups.filter { it.type == type }.flatMap { group ->
-            (0 until group.length).filter(group::isTrackSupported).map { index ->
+            (0 until group.length).filter(group::isTrackSupported).filterNot { index ->
+                group.getTrackFormat(index).let { isPlaceholderCaption(it.sampleMimeType, it.language) }
+            }.map { index ->
                 Triple(group.mediaTrackGroup, index, group.isTrackSelected(index))
             }
         }
@@ -40,6 +43,15 @@ object MediaTracks {
         }
         player.trackSelectionParameters = builder.build()
     }
+
+    /**
+     * A closed-caption channel inferred from the video stream rather than declared with a
+     * language. HLS streams (e.g. iQiyi's) carry these even when empty, and their subtitles are
+     * burned into the picture, so offering them as "Subtitles" only confuses.
+     */
+    fun isPlaceholderCaption(mimeType: String?, language: String?): Boolean =
+        (mimeType == MimeTypes.APPLICATION_CEA608 || mimeType == MimeTypes.APPLICATION_CEA708) &&
+            (language.isNullOrBlank() || language == C.LANGUAGE_UNDETERMINED)
 
     /** The choice after the selected one, wrapping around, for OK-to-cycle menu rows. */
     fun next(choices: List<TrackChoice>): TrackChoice? {

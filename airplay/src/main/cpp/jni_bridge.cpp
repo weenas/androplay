@@ -546,6 +546,17 @@ Java_com_androplay_protocol_AirPlayNative_nativeStop(JNIEnv *, jclass) {
     stopLocked();
 }
 
+/* Ends the current sender's session from the TV (e.g. the remote's Back key): its connections
+   close as the receiver keeps running, so the sender sees casting stop. */
+extern "C" JNIEXPORT void JNICALL
+Java_com_androplay_protocol_AirPlayNative_nativeDisconnect(JNIEnv *, jclass) {
+    std::lock_guard<std::mutex> lock(g_server_mutex);
+    if (!g_raop) return;
+    LOGI("Ending the AirPlay session from the TV");
+    raop_destroy_airplay_video(g_raop, -1);
+    raop_remove_known_connections(g_raop);
+}
+
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_com_androplay_protocol_AirPlayNative_nativeAirPlayTxtRecord(JNIEnv *env, jclass) {
     std::lock_guard<std::mutex> lock(g_server_mutex);

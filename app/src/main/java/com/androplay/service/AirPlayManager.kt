@@ -438,6 +438,29 @@ class AirPlayManager private constructor(context: Context) {
         }
     }
 
+    /**
+     * Ends whatever is being cast, from the TV (the remote's Back key or the quick menu):
+     * DLNA video stops (its sender sees STOPPED), an AirPlay sender is disconnected.
+     */
+    fun endCasting() {
+        Log.i(TAG, "Casting ended from the TV")
+        if (videoSource == VideoSource.DLNA && currentStreamInfo.isVideoPlayback) {
+            onVideoStopped(null)
+            return
+        }
+        nativeBridge.disconnect()
+        // Leave the screen now rather than when the connections have closed.
+        videoRenderer.stop()
+        audioRenderer.stop()
+        hlsPlayer.stop()
+        videoSource = null
+        nowPlaying = NowPlaying()
+        dacp.clear()
+        mediaSession.update(null)
+        currentStreamInfo = StreamInfo()
+        currentState = AirPlayConnectionState.Discovering
+    }
+
     /** AirPlay mirroring or audio starting takes the screen from DLNA video. */
     private fun stopDlnaVideo() {
         if (videoSource != VideoSource.DLNA) return

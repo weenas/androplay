@@ -131,4 +131,13 @@ class NativeBridge(
         }
     }
 
+    fun disconnect() {
+        if (!isAvailable) return
+        try {
+            AirPlayNative.disconnect()
+        } catch (e: UnsatisfiedLinkError) {
+            Log.e(TAG, "Native disconnect method is unavailable", e)
+        }
+    }
+
 }

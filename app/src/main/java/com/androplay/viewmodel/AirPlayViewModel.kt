@@ -75,6 +75,9 @@ class AirPlayViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleVideoPause() = manager.toggleVideoPause()
 
+    /** Stops the current cast from the TV; the receiver keeps waiting for the next one. */
+    fun endCasting() = manager.endCasting()
+
     /** For the stats overlay; main thread. */
     fun playbackStats() = manager.playbackStats()
 
