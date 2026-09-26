@@ -13,6 +13,9 @@ class AirPlayManager private constructor(private val context: Context) {
         private const val DEFAULT_VIDEO_WIDTH = 1920
         private const val DEFAULT_VIDEO_HEIGHT = 1080
         private const val PAUSE_CHECK_MS = 500L
+        private const val DLNA_PROGRESS_MS = 500L
+        private const val DLNA_SKIP_SEC = 10
+        private const val MAX_COVER_BYTES = 5 * 1024 * 1024
         /** playback-info for an AirPlay sender whose video DLNA replaced: finished, so it ends its session. */
         private val AIRPLAY_VIDEO_REPLACED =
             doubleArrayOf(0.0, 0.0, 0.0, com.androplay.protocol.AirPlayNative.PLAYBACK_FINISHED, 0.0, 1.0)
@@ -132,22 +135,22 @@ class AirPlayManager private constructor(private val context: Context) {
     /** DLNA senders' commands, played with the same player, screen and quick menu as AirPlay video. */
     private val dlnaTarget = object : com.androplay.dlna.DlnaRenderer.Target {
         @Volatile private var url: String? = null
-        @Volatile private var title: String? = null
+        @Volatile private var media = com.androplay.dlna.DlnaMedia()
         @Volatile private var volume = 100
         @Volatile private var muted = false
 
-        override fun open(url: String, title: String?) {
+        override fun open(url: String, media: com.androplay.dlna.DlnaMedia) {
             if (!activeSettings.allowTakeover && airPlayBusy()) {
                 Log.i(TAG, "DLNA video refused: another device is casting over AirPlay")
                 throw com.androplay.dlna.Soap.Fault(701, "Another device is casting to this TV")
             }
             this.url = url
-            this.title = title
-            start(url, title)
+            this.media = media
+            start(url, media)
         }
 
-        private fun start(url: String, title: String?) {
-            Log.i(TAG, "DLNA video: ${title ?: "(no title)"} · $url")
+        private fun start(url: String, media: com.androplay.dlna.DlnaMedia) {
+            Log.i(TAG, "DLNA ${if (media.isAudio) "music" else "video"}: ${media.title ?: "(no title)"} · $url")
             // Like AirPlay video, it replaces whatever is on screen. Playback starts right away:
             // some senders never send Play after SetAVTransportURI.
             videoSource = VideoSource.DLNA
@@ -155,8 +158,20 @@ class AirPlayManager private constructor(private val context: Context) {
             audioRenderer.stop()
             applyVolume()
             hlsPlayer.play(url, 0f) {
-                currentStreamInfo = StreamInfo(sourceName = title.orEmpty(), isVideoPlayback = true)
                 currentError = null
+                if (media.isAudio) {
+                    // Music apps' casts get the music screen: cover, title, lyrics, controls.
+                    nowPlaying = NowPlaying(title = media.title, artist = media.artist, album = media.album)
+                    currentStreamInfo = StreamInfo(
+                        sourceName = media.title.orEmpty(), isAudioOnly = true, isDlna = true, nowPlaying = nowPlaying
+                    )
+                    mediaSession.update(nowPlaying)
+                    loadDlnaCover(url, media.albumArtUrl)
+                    mainHandler.removeCallbacks(dlnaMusicProgress)
+                    mainHandler.post(dlnaMusicProgress)
+                } else {
+                    currentStreamInfo = StreamInfo(sourceName = media.title.orEmpty(), isVideoPlayback = true, isDlna = true)
+                }
                 currentState = AirPlayConnectionState.Streaming
             }
         }
@@ -166,8 +181,8 @@ class AirPlayManager private constructor(private val context: Context) {
         /** AirPlay is on screen: mirroring, music, or AirPlay video. */
         private fun airPlayBusy(): Boolean {
             val stream = currentStreamInfo
-            return currentState == AirPlayConnectionState.Streaming &&
-                (stream.isMirroring || stream.isAudioOnly || (stream.isVideoPlayback && videoSource == VideoSource.AIRPLAY))
+            return currentState == AirPlayConnectionState.Streaming && !stream.isDlna &&
+                (stream.isMirroring || stream.isAudioOnly || stream.isVideoPlayback)
         }
 
         override fun play() {
@@ -176,7 +191,7 @@ class AirPlayManager private constructor(private val context: Context) {
                 hlsPlayer.setRate(1f)
             } else {
                 // After Stop or the end, or once AirPlay took over: Play starts the video again.
-                url?.let { start(it, title) }
+                url?.let { start(it, media) }
             }
         }
 
@@ -343,7 +358,7 @@ class AirPlayManager private constructor(private val context: Context) {
         dacp.clear()
         mediaSession.update(null)
         // An AirPlay session ending (e.g. a phone that was only probing) leaves DLNA video playing.
-        if (videoSource == VideoSource.DLNA && currentStreamInfo.isVideoPlayback) return
+        if (dlnaOnScreen()) return
         hlsPlayer.stop()
         currentStreamInfo = StreamInfo()
         currentState = AirPlayConnectionState.Discovering
@@ -352,7 +367,7 @@ class AirPlayManager private constructor(private val context: Context) {
     private fun onNativeConnectionStarted() {
         currentError = null
         // DLNA video stays on screen until the AirPlay sender actually streams something.
-        if (videoSource == VideoSource.DLNA && currentStreamInfo.isVideoPlayback) return
+        if (dlnaOnScreen()) return
         currentState = AirPlayConnectionState.Connecting
     }
 
@@ -405,7 +420,8 @@ class AirPlayManager private constructor(private val context: Context) {
     /** Freezes the now-playing progress when audio stops arriving (the sender paused). */
     private val pauseWatchdog = object : Runnable {
         override fun run() {
-            if (!currentStreamInfo.isAudioOnly) return
+            // DLNA music plays here, not from the sender, so no audio gap means a pause there.
+            if (!currentStreamInfo.isAudioOnly || currentStreamInfo.isDlna) return
             val lastAudio = lastAudioAtMs
             if (nowPlaying.stalled(lastAudio)) updateNowPlaying { it.paused(nowMs = lastAudio) }
             mainHandler.postDelayed(this, PAUSE_CHECK_MS)
@@ -417,7 +433,8 @@ class AirPlayManager private constructor(private val context: Context) {
         val stream = currentStreamInfo
         val stats = when {
             stream.isVideoPlayback ->
-                hlsPlayer.stats(if (videoSource == VideoSource.DLNA) "DLNA video" else "AirPlay video") ?: return null
+                hlsPlayer.stats(if (stream.isDlna) "DLNA video" else "AirPlay video") ?: return null
+            stream.isAudioOnly && stream.isDlna -> hlsPlayer.stats("DLNA audio") ?: return null
             stream.isMirroring -> PlaybackStats("Screen mirroring", videoRenderer.stats(), audioRenderer.stats())
             stream.isAudioOnly -> PlaybackStats("AirPlay audio", audio = audioRenderer.stats())
             else -> return null
@@ -437,13 +454,24 @@ class AirPlayManager private constructor(private val context: Context) {
     /** Controls the sender's playback (music apps), from the TV remote or the screen. */
     fun remoteControl(command: DacpClient.Command) {
         Log.d(TAG, "Remote control: ${command.path}")
+        if (dlnaMusicPlaying()) {
+            // DLNA music plays in this app; track changes belong to the sender's playlist.
+            when (command) {
+                DacpClient.Command.PLAY_PAUSE -> hlsPlayer.togglePause()
+                DacpClient.Command.PLAY -> hlsPlayer.setRate(1f)
+                DacpClient.Command.PAUSE -> hlsPlayer.setRate(0f)
+                else -> Unit
+            }
+            return
+        }
         dacp.send(command)
     }
 
     /** Skips the sender's music about ten seconds forward or back (it can't seek exactly). */
     fun skipMusic(forward: Boolean) {
         Log.d(TAG, "Remote control: skip ${if (forward) "forward" else "back"}")
-        dacp.skip(forward)
+        // DLNA music plays here, so it seeks exactly.
+        if (dlnaMusicPlaying()) hlsPlayer.seekBy(if (forward) DLNA_SKIP_SEC else -DLNA_SKIP_SEC) else dacp.skip(forward)
     }
 
     /** Metadata can arrive before the audio does, so it is kept until the screen shows it. */
@@ -463,7 +491,7 @@ class AirPlayManager private constructor(private val context: Context) {
      */
     fun endCasting() {
         Log.i(TAG, "Casting ended from the TV")
-        if (videoSource == VideoSource.DLNA && currentStreamInfo.isVideoPlayback) {
+        if (dlnaOnScreen()) {
             onVideoStopped(null)
             return
         }
@@ -480,6 +508,57 @@ class AirPlayManager private constructor(private val context: Context) {
         currentState = AirPlayConnectionState.Discovering
     }
 
+    /** DLNA video or music is on screen. */
+    private fun dlnaOnScreen() = videoSource == VideoSource.DLNA && currentStreamInfo.isDlna
+
+    private fun dlnaMusicPlaying() = dlnaOnScreen() && currentStreamInfo.isAudioOnly
+
+    /**
+     * Keeps DLNA music's progress and play state on the music screen and media session in step
+     * with the player, refreshing only on real changes (a pause, a seek, the length arriving).
+     */
+    private val dlnaMusicProgress = object : Runnable {
+        override fun run() {
+            if (!dlnaMusicPlaying()) return
+            val progress = hlsPlayer.progress()
+            val now = android.os.SystemClock.elapsedRealtime()
+            val shown = nowPlaying
+            val playing = progress.playing && !progress.buffering
+            if (playing != shown.playing ||
+                kotlin.math.abs(progress.durationSec - shown.durationSec) > 0.5 ||
+                kotlin.math.abs(shown.currentPositionSec(now) - progress.positionSec) > 1.5
+            ) {
+                updateNowPlaying {
+                    it.copy(positionSec = progress.positionSec, durationSec = progress.durationSec, positionAtMs = now, playing = playing)
+                }
+            }
+            mainHandler.postDelayed(this, DLNA_PROGRESS_MS)
+        }
+    }
+
+    /** Fetches a DLNA song's cover; ignored if another song started meanwhile. */
+    private fun loadDlnaCover(songUrl: String, coverUrl: String?) {
+        dlnaSongUrl = songUrl
+        coverUrl ?: return
+        Thread({
+            val bytes = runCatching {
+                val connection = java.net.URL(coverUrl).openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = 8000
+                connection.readTimeout = 8000
+                try {
+                    connection.inputStream.use { input -> input.readBytes().takeIf { it.size <= MAX_COVER_BYTES } }
+                } finally {
+                    connection.disconnect()
+                }
+            }.onFailure { Log.w(TAG, "Could not load the DLNA cover: ${it.message}") }.getOrNull() ?: return@Thread
+            mainHandler.post {
+                if (dlnaMusicPlaying() && dlnaSongUrl == songUrl) updateNowPlaying { it.copy(coverArt = bytes) }
+            }
+        }, "DLNA-cover").start()
+    }
+
+    @Volatile private var dlnaSongUrl: String? = null
+
     /** AirPlay mirroring or audio starting takes the screen from DLNA video. */
     private fun stopDlnaVideo() {
         if (videoSource != VideoSource.DLNA) return
@@ -490,7 +569,11 @@ class AirPlayManager private constructor(private val context: Context) {
     /** [error] is shown on the waiting screen until the next connection. */
     private fun onVideoStopped(error: String?) {
         hlsPlayer.stop()
-        if (currentStreamInfo.isVideoPlayback) {
+        if (currentStreamInfo.isDlna && currentStreamInfo.isAudioOnly) {
+            nowPlaying = NowPlaying()
+            mediaSession.update(null)
+        }
+        if (currentStreamInfo.isVideoPlayback || currentStreamInfo.isDlna) {
             currentStreamInfo = StreamInfo()
             currentError = error
             currentState = AirPlayConnectionState.Discovering

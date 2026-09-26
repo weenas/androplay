@@ -52,6 +52,14 @@ private fun Screens() {
         }
     }
 
+    // A cast that starts while Settings or About is open takes the screen, as on an Apple TV.
+    // Only on the transition: opening Settings during a cast still works.
+    val state by viewModel.state.collectAsState()
+    val streaming = state.connectionState == com.androplay.service.AirPlayConnectionState.Streaming
+    LaunchedEffect(streaming) {
+        if (streaming) currentScreen = "mirror"
+    }
+
     // The remote's Back key leaves sub-screens instead of closing the app.
     BackHandler(enabled = currentScreen != "mirror") { currentScreen = "mirror" }
 

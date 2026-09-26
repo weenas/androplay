@@ -10,7 +10,7 @@ class DlnaRendererTest {
     private class FakeTarget : DlnaRenderer.Target {
         val calls = mutableListOf<String>()
         var status = DlnaRenderer.Status(DlnaState.STOPPED)
-        override fun open(url: String, title: String?) { calls += "open $url $title" }
+        override fun open(url: String, media: DlnaMedia) { calls += "open $url ${media.title}" }
         override fun play() { calls += "play" }
         override fun pause() { calls += "pause" }
         override fun stop() { calls += "stop" }
@@ -84,7 +84,7 @@ class DlnaRendererTest {
     fun keepsTheCurrentMediaWhenTheTargetRefusesANewOne() {
         call("SetAVTransportURI", "<CurrentURI>http://cdn/first.mp4</CurrentURI>")
         val refusing = object : DlnaRenderer.Target by target {
-            override fun open(url: String, title: String?) = throw Soap.Fault(701, "busy")
+            override fun open(url: String, media: DlnaMedia) = throw Soap.Fault(701, "busy")
         }
         val guarded = DlnaRenderer(refusing)
         val action = Soap.parse(soap("SetAVTransportURI", "<CurrentURI>http://cdn/second.mp4</CurrentURI>"), null)!!
