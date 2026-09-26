@@ -26,7 +26,7 @@ object UpnpDescriptions {
     <deviceType>${Ssdp.MEDIA_RENDERER}</deviceType>
     <friendlyName>${Soap.escape(friendlyName)}</friendlyName>
     <manufacturer>CastBay</manufacturer>
-    <manufacturerURL>https://github.com/weenas/castbay</manufacturerURL>
+    <manufacturerURL>https://castbay.weenas.com</manufacturerURL>
     <modelDescription>AirPlay and DLNA receiver for Android TV</modelDescription>
     <modelName>CastBay</modelName>
     <modelNumber>1</modelNumber>
