@@ -16,11 +16,11 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.weenas.castbay.R
 import com.weenas.castbay.ui.AppBackground
+import com.weenas.castbay.ui.BrandTitle
 import com.weenas.castbay.ui.QrCode
 import com.weenas.castbay.util.AppVersion
 
@@ -46,7 +46,8 @@ fun AboutScreen(onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.app_name), fontSize = 48.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                BrandTitle()
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(stringResource(R.string.app_tagline), fontSize = 20.sp, color = Color.White.copy(alpha = 0.7f))
                 Spacer(modifier = Modifier.height(28.dp))
                 AboutLine(stringResource(R.string.info_version), version)

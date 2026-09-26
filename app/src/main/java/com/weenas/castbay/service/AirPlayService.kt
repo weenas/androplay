@@ -99,7 +99,7 @@ class AirPlayService : Service() {
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(com.weenas.castbay.R.string.app_name))
             .setContentText(message)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(com.weenas.castbay.R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
