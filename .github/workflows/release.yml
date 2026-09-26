@@ -1,0 +1,93 @@
+name: Release
+
+# Push a tag like v1.0.26 to build a signed release APK and publish it, with the complete
+# source (including submodules, as GPL-3.0 requires), as a GitHub pre-release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check the tag matches the app version
+        run: |
+          version="$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match versionName $version"
+            exit 1
+          fi
+
+      # GitHub's automatic source archives leave out submodules (UxPlay, libplist, ALAC).
+      - name: Package the complete source
+        run: |
+          tar --exclude=.git --exclude='*/.git' \
+            -czf "$RUNNER_TEMP/CastBay-$VERSION-source.tar.gz" \
+            --transform "s,^\.,CastBay-$VERSION," .
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install the pinned NDK and CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "ndk;27.0.12077973" "cmake;3.22.1" > /dev/null
+
+      - name: Restore the release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.CASTBAY_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::The CASTBAY_KEYSTORE_BASE64 secret is missing; refusing to publish a debug-signed APK"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/castbay-release.jks"
+          echo "CASTBAY_KEYSTORE_FILE=$RUNNER_TEMP/castbay-release.jks" >> "$GITHUB_ENV"
+
+      # lintVitalRelease crashes inside AGP's lint (a tooling bug), so it is skipped.
+      - name: Build the signed release APK
+        env:
+          CASTBAY_KEYSTORE_PASSWORD: ${{ secrets.CASTBAY_KEYSTORE_PASSWORD }}
+          CASTBAY_KEY_ALIAS: ${{ secrets.CASTBAY_KEY_ALIAS }}
+          CASTBAY_KEY_PASSWORD: ${{ secrets.CASTBAY_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease :app:testDebugUnitTest \
+            -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/CastBay-$VERSION.apk"
+
+      - name: Check it is signed with the release key, not the debug key
+        run: |
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          certs="$("$apksigner" verify --print-certs "$RUNNER_TEMP/CastBay-$VERSION.apk")"
+          echo "$certs" | grep "certificate DN"
+          if echo "$certs" | grep -q "CN=Android Debug"; then
+            echo "::error::The APK is debug-signed"
+            exit 1
+          fi
+
+      - name: Publish the pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "$RUNNER_TEMP/CastBay-$VERSION.apk" \
+            "$RUNNER_TEMP/CastBay-$VERSION-source.tar.gz" \
+            --title "CastBay $VERSION" \
+            --prerelease \
+            --generate-notes
+      - name: Clean up the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/castbay-release.jks"
