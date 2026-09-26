@@ -62,6 +62,7 @@ class ReceiverSettingsTest {
         assertFalse(base.copy(startOnBoot = false).needsRestartComparedTo(base))
         assertTrue(base.copy(videoCodec = ReceiverSettings.CODEC_H264_ONLY).needsRestartComparedTo(base))
         assertTrue(base.copy(allowTakeover = true).needsRestartComparedTo(base))
+        assertTrue(base.copy(dlnaEnabled = false).needsRestartComparedTo(base))
         assertFalse(base.showStats)
     }
 }

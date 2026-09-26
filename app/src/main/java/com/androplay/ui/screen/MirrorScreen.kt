@@ -191,11 +191,12 @@ fun IdleScreen(viewModel: AirPlayViewModel, onStart: () -> Unit) {
 fun DiscoveringScreen(viewModel: AirPlayViewModel, lastError: String? = null, onStop: () -> Unit) {
     HomeLayout(info = { ReceiverInfo(viewModel = viewModel) }) {
         val settings by viewModel.settings.collectAsState()
-        Text("Waiting for an AirPlay connection...", color = Color.White, fontSize = 28.sp)
+        Text("Waiting for a connection...", color = Color.White, fontSize = 28.sp)
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             "On iPhone or iPad: Control Center → Screen Mirroring → ${settings.deviceName}. " +
-                "In apps, tap the AirPlay icon.",
+                "In apps, tap the AirPlay icon" +
+                (if (settings.dlnaEnabled) ", or the app's own cast button (e.g. Bilibili)." else "."),
             color = Color.White,
             fontSize = 18.sp
         )
@@ -283,6 +284,7 @@ fun ReceiverInfo(viewModel: AirPlayViewModel) {
         InfoRow("IP address", network.ipv4.joinToString(", ").ifEmpty { "—" })
         val mirroring = remember(settings) { viewModel.mirroringProfile(settings) }
         InfoRow("Mirroring", mirroring.label)
+        InfoRow("DLNA casting", if (settings.dlnaEnabled) "On (apps' cast button)" else "Off")
         InfoRow("Password", if (settings.requirePassword) "Required" else "Not required")
         InfoRow("Second device", if (settings.allowTakeover) "Takes over" else "Refused")
         InfoRow("Version", viewModel.appVersion)

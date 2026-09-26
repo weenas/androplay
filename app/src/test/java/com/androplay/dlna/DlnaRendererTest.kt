@@ -81,6 +81,23 @@ class DlnaRendererTest {
     }
 
     @Test
+    fun keepsTheCurrentMediaWhenTheTargetRefusesANewOne() {
+        call("SetAVTransportURI", "<CurrentURI>http://cdn/first.mp4</CurrentURI>")
+        val refusing = object : DlnaRenderer.Target by target {
+            override fun open(url: String, title: String?) = throw Soap.Fault(701, "busy")
+        }
+        val guarded = DlnaRenderer(refusing)
+        val action = Soap.parse(soap("SetAVTransportURI", "<CurrentURI>http://cdn/second.mp4</CurrentURI>"), null)!!
+        try {
+            guarded.handle(UpnpDescriptions.AV_TRANSPORT, action)
+            fail("should be refused")
+        } catch (fault: Soap.Fault) {
+            assertEquals(701, fault.code)
+        }
+        assertEquals(DlnaState.NO_MEDIA, guarded.eventValues(UpnpDescriptions.AV_TRANSPORT).toMap()["TransportState"])
+    }
+
+    @Test
     fun refusesWhatItCantDo() {
         for ((action, code) in listOf("Play" to 701, "Next" to 701, "Record" to 401)) {
             try {

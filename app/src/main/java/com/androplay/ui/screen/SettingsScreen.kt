@@ -62,6 +62,11 @@ fun SettingsScreen(viewModel: AirPlayViewModel, onBack: () -> Unit) {
                     fontSize = 14.sp
                 )
             }
+            item {
+                SwitchSetting("DLNA casting (apps' cast button)", settings.dlnaEnabled) { enabled ->
+                    viewModel.updateSettings { it.copy(dlnaEnabled = enabled) }
+                }
+            }
             item { AccessSetting(settings, viewModel) }
             item {
                 ChoiceSetting(

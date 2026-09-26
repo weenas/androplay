@@ -17,6 +17,8 @@ data class ReceiverSettings(
      * (the current one is disconnected), false = it is refused.
      */
     val allowTakeover: Boolean = false,
+    /** Also act as a DLNA renderer, for video apps' own "cast" buttons (Bilibili, iQiyi, ...). */
+    val dlnaEnabled: Boolean = true,
     /** Start the receiver when the TV boots, so it is always ready like an Apple TV. */
     val startOnBoot: Boolean = true,
     /** Show a "stats for nerds" overlay (codec, resolution, bitrate, ...) while playing. */
@@ -100,6 +102,7 @@ class ReceiverSettingsStore(context: Context) {
             ReceiverSettings.isValidPin(preferences.getString("pin", "").orEmpty())
         ),
         allowTakeover = preferences.getBoolean("allow_takeover", false),
+        dlnaEnabled = preferences.getBoolean("dlna_enabled", true),
         startOnBoot = preferences.getBoolean("start_on_boot", true),
         showStats = preferences.getBoolean("show_stats", false),
         pictureMode = preferences.getString("picture_mode", null)
@@ -115,6 +118,7 @@ class ReceiverSettingsStore(context: Context) {
             .putString("pin", settings.pin)
             .putBoolean("require_password", settings.requirePassword)
             .putBoolean("allow_takeover", settings.allowTakeover)
+            .putBoolean("dlna_enabled", settings.dlnaEnabled)
             .putBoolean("start_on_boot", settings.startOnBoot)
             .putBoolean("show_stats", settings.showStats)
             .putString("picture_mode", settings.pictureMode)

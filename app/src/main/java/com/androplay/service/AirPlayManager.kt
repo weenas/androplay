@@ -110,6 +110,8 @@ class AirPlayManager private constructor(context: Context) {
     private val dacp = DacpClient(context)
     private val mediaSession = NowPlayingSession(context, onCommand = ::remoteControl)
     private val dlna = com.androplay.dlna.DlnaReceiver(context)
+    /** The running receiver's settings (DLNA checks the second-device policy against them). */
+    @Volatile private var activeSettings = ReceiverSettings()
 
     /** Who started the video in [hlsPlayer]: AirPlay (e.g. YouTube) or DLNA (e.g. Bilibili's cast button). */
     private enum class VideoSource { AIRPLAY, DLNA }
@@ -123,6 +125,10 @@ class AirPlayManager private constructor(context: Context) {
         @Volatile private var muted = false
 
         override fun open(url: String, title: String?) {
+            if (!activeSettings.allowTakeover && airPlayBusy()) {
+                Log.i(TAG, "DLNA video refused: another device is casting over AirPlay")
+                throw com.androplay.dlna.Soap.Fault(701, "Another device is casting to this TV")
+            }
             this.url = url
             this.title = title
             start(url, title)
@@ -144,6 +150,13 @@ class AirPlayManager private constructor(context: Context) {
         }
 
         private fun ours() = videoSource == VideoSource.DLNA
+
+        /** AirPlay is on screen: mirroring, music, or AirPlay video. */
+        private fun airPlayBusy(): Boolean {
+            val stream = currentStreamInfo
+            return currentState == AirPlayConnectionState.Streaming &&
+                (stream.isMirroring || stream.isAudioOnly || (stream.isVideoPlayback && videoSource == VideoSource.AIRPLAY))
+        }
 
         override fun play() {
             val progress = hlsPlayer.progress()
@@ -225,6 +238,7 @@ class AirPlayManager private constructor(context: Context) {
 
     fun start(settings: ReceiverSettings = settingsStore.load()): Boolean {
         Log.d(TAG, "Starting AirPlay server: ${settings.deviceName}")
+        activeSettings = settings
         currentError = null
         val protocolPort = nativeBridge.start(
             settings.deviceName,
@@ -256,7 +270,7 @@ class AirPlayManager private constructor(context: Context) {
         }
         currentState = AirPlayConnectionState.Registering
         // DLNA (video apps' own cast buttons, e.g. Bilibili's) runs beside AirPlay.
-        Thread({ dlna.start(settings.deviceName, dlnaTarget) }, "DLNA-start").start()
+        if (settings.dlnaEnabled) Thread({ dlna.start(settings.deviceName, dlnaTarget) }, "DLNA-start").start()
         return true
     }
 
